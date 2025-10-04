@@ -644,6 +644,93 @@ download_and_install_mod() {
     rm -rf "$temp_dir"
 }
 
+# Function to clean and validate mods.yml file
+clean_mods_yml() {
+    local mods_yml="$1"
+    
+    echo ""
+    echo -e "${BLUE}Checking and cleaning mods.yml file...${NC}"
+    
+    # Check if file exists
+    if [ ! -f "$mods_yml" ]; then
+        echo -e "${RED}Error: mods.yml file not found at: $mods_yml${NC}"
+        log_message "ERROR" "mods.yml file not found at: $mods_yml"
+        return 1
+    fi
+    
+    # Create backup before cleaning
+    local backup_file="${mods_yml}.backup.$(date +%s)"
+    if cp "$mods_yml" "$backup_file"; then
+        echo "Backup created: $backup_file"
+        log_message "INFO" "Backup created: $backup_file"
+    else
+        echo -e "${YELLOW}Warning: Could not create backup of mods.yml${NC}"
+        log_message "WARN" "Could not create backup of mods.yml"
+    fi
+    
+    # Check for null bytes
+    if grep -q $'\0' "$mods_yml"; then
+        echo -e "${YELLOW}Found null bytes in mods.yml, cleaning...${NC}"
+        log_message "WARN" "Found null bytes in mods.yml, cleaning..."
+        
+        # Clean null bytes and re-serialize YAML
+        python3 -c "
+import yaml
+import sys
+
+try:
+    with open('$mods_yml', 'r') as f:
+        content = f.read()
+        # Remove null bytes
+        content = content.replace('\x00', '')
+        
+    # Parse and re-serialize to clean up the YAML
+    data = yaml.safe_load(content)
+    
+    # Write back clean YAML
+    with open('$mods_yml', 'w') as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+    
+    print('✅ Successfully cleaned mods.yml of null bytes and re-serialized')
+    
+except Exception as e:
+    print(f'❌ Error cleaning mods.yml: {e}')
+    sys.exit(1)
+" || {
+            echo -e "${RED}Failed to clean mods.yml${NC}"
+            log_message "ERROR" "Failed to clean mods.yml"
+            return 1
+        }
+    else
+        echo "✅ No null bytes found in mods.yml"
+        log_message "INFO" "No null bytes found in mods.yml"
+    fi
+    
+    # Validate YAML syntax
+    echo "Validating YAML syntax..."
+    if python3 -c "
+import yaml
+try:
+    with open('$mods_yml', 'r') as f:
+        yaml.safe_load(f)
+    print('✅ YAML syntax is valid')
+except yaml.YAMLError as e:
+    print(f'❌ YAML syntax error: {e}')
+    exit(1)
+except Exception as e:
+    print(f'❌ Error validating YAML: {e}')
+    exit(1)
+"; then
+        echo -e "${GREEN}mods.yml is clean and valid${NC}"
+        log_message "INFO" "mods.yml is clean and valid"
+        return 0
+    else
+        echo -e "${RED}mods.yml has syntax errors${NC}"
+        log_message "ERROR" "mods.yml has syntax errors"
+        return 1
+    fi
+}
+
 # Function to update mod registry
 update_mod_registry() {
     local mod_name="$1"
@@ -814,6 +901,19 @@ if [ $mod_count -le 1 ]; then
     echo -e "${RED}No mods found in plugin directory.${NC}"
     echo "Please install some mods first using r2modmanPlus."
     exit 1
+fi
+
+# Clean and validate mods.yml file before proceeding
+MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+if [ -f "$MODS_YML" ]; then
+    clean_mods_yml "$MODS_YML"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Failed to clean mods.yml file. Please check the file manually.${NC}"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}Warning: mods.yml not found at $MODS_YML${NC}"
+    echo "Registry updates will be skipped."
 fi
 
 # Get mod selection from user (this will show filtered results)
