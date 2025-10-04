@@ -20,6 +20,7 @@ chmod +x modrollback.sh
 - **Version not found:** Try different version number
 - **Download fails:** Check internet connection
 - **Registry update fails:** Close r2modmanPlus and retry
+- **YAML parsing errors:** Run `./clean_mods_yml.sh` to fix corrupted mods.yml
 - **For detailed rollback troubleshooting:** See [rollback-troubleshooting.md](rollback-troubleshooting.md)
 
 ### 📦 Package Installation Fails
