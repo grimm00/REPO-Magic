@@ -89,6 +89,8 @@ cp /tmp/mods_clean.yml /home/deck/.config/r2modmanPlus-local/REPO/profiles/Frien
 
 **Important Discovery:** The mods.yml file contains base64-encoded icon data embedded directly in the YAML structure. This is why the file is so large (9.6MB) and why it takes time to load. The base64 encoding is the correct format for r2modmanPlus.
 
+**Null Bytes Issue:** The mods.yml file may contain null bytes (`\x00`) which can cause parsing issues in r2modmanPlus. These null bytes appear to be part of how r2modmanPlus stores the data, but they can cause "trailing content" errors.
+
 **Prevention:** The mods.yml file contains complex base64-encoded data and should never be edited manually. Always use r2modmanPlus interface or our script's registry update functions.
 
 ## Common Issues and Solutions
