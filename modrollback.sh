@@ -139,60 +139,66 @@ echo ""
 log_message "INFO" "Mod rollback script started"
 log_message "INFO" "Log file: $LOG_FILE"
 
-# Check dependencies first
-echo "Checking dependencies..."
-check_dependencies
-log_message "INFO" "All required dependencies found"
-
-# Check network connectivity
-echo "Checking network connectivity..."
-check_network
-log_message "INFO" "Network connectivity check completed"
-
-# Check disk space
-echo "Checking disk space..."
-check_disk_space
-log_message "INFO" "Disk space check completed"
-
-# Check if we can run sudo commands
-if ! sudo -n true 2>/dev/null; then
-    echo "This script needs sudo privileges to install dependencies."
-    echo ""
-    echo "If this is your first time using sudo on SteamOS, you'll be prompted to:"
-    echo "1. Set a new sudo password (if not already set)"
-    echo "2. Enter that password to authenticate"
-    echo ""
-    echo "Note: The password you type will not be visible on screen for security."
-    echo ""
-    read -p "Press Enter to continue or Ctrl+C to cancel..."
-    echo ""
-    
-    # Test sudo with password prompt
-    echo "Authenticating with sudo..."
-    if ! sudo -v; then
-        echo ""
-        echo "Sudo authentication failed. This could be because:"
-        echo "- You entered the wrong password"
-        echo "- You cancelled the password prompt"
-        echo "- There was an issue setting up sudo for the first time"
-        echo ""
-        echo "Please try running the script again."
-        exit 1
-    fi
-    echo "Sudo authentication successful!"
-    echo ""
+# Check dependencies first (skip if environment variable is set)
+if [ "$SKIP_DEPENDENCY_CHECK" != "true" ]; then
+    echo "Checking dependencies..."
+    check_dependencies
+    log_message "INFO" "All required dependencies found"
+else
+    echo "Skipping dependency check (SKIP_DEPENDENCY_CHECK=true)"
+    log_message "INFO" "Dependency check skipped"
 fi
 
-# Disable SteamOS read-only mode for package installation
-echo "Disabling SteamOS read-only mode..."
-if sudo steamos-readonly disable; then
-    echo "Read-only mode disabled successfully."
-    readonly_disabled=true
+# Network and disk checks are handled in the dependency check function
+
+# Check if we can run sudo commands (skip if environment variable is set)
+if [ "$SKIP_DEPENDENCY_CHECK" != "true" ]; then
+    if ! sudo -n true 2>/dev/null; then
+        echo "This script needs sudo privileges to install dependencies."
+        echo ""
+        echo "If this is your first time using sudo on SteamOS, you'll be prompted to:"
+        echo "1. Set a new sudo password (if not already set)"
+        echo "2. Enter that password to authenticate"
+        echo ""
+        echo "Note: The password you type will not be visible on screen for security."
+        echo ""
+        read -p "Press Enter to continue or Ctrl+C to cancel..."
+        echo ""
+        
+        # Test sudo with password prompt
+        echo "Authenticating with sudo..."
+        if ! sudo -v; then
+            echo ""
+            echo "Sudo authentication failed. This could be because:"
+            echo "- You entered the wrong password"
+            echo "- You cancelled the password prompt"
+            echo "- There was an issue setting up sudo for the first time"
+            echo ""
+            echo "Please try running the script again."
+            exit 1
+        fi
+        echo "Sudo authentication successful!"
+        echo ""
+    fi
 else
-    echo "Warning: Could not disable read-only mode. Installation may fail."
+    echo "Skipping sudo check (SKIP_DEPENDENCY_CHECK=true)"
+fi
+
+# Disable SteamOS read-only mode for package installation (skip if environment variable is set)
+if [ "$SKIP_DEPENDENCY_CHECK" != "true" ]; then
+    echo "Disabling SteamOS read-only mode..."
+    if sudo steamos-readonly disable; then
+        echo "Read-only mode disabled successfully."
+        readonly_disabled=true
+    else
+        echo "Warning: Could not disable read-only mode. Installation may fail."
+        readonly_disabled=false
+    fi
+    echo ""
+else
+    echo "Skipping SteamOS read-only mode changes (SKIP_DEPENDENCY_CHECK=true)"
     readonly_disabled=false
 fi
-echo ""
 
 # Check if mods.yml exists
 if [ ! -f "$MODS_YML" ]; then
