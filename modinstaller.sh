@@ -190,6 +190,81 @@ fi
 # Remove the install directory
 rm -r $MOD_INSTALL_PATH
 
+# Function to add mod to r2modmanPlus registry
+add_to_mod_registry() {
+    local mod_name="$1"
+    local mod_path="$2"
+    local mod_version="$3"
+    local mod_author="$4"
+    local mod_description="$5"
+    local mod_url="$6"
+    local mods_yml="$7"
+    
+    echo "Registering mod with r2modmanPlus..."
+    
+    # Extract version components
+    local major_version=$(echo $mod_version | cut -d. -f1)
+    local minor_version=$(echo $mod_version | cut -d. -f2)
+    local patch_version=$(echo $mod_version | cut -d. -f3)
+    
+    # Get current timestamp in milliseconds
+    local timestamp=$(date +%s)000
+    
+    # Create mod entry
+    local mod_entry="
+- manifestVersion: 1
+  name: \"$mod_name\"
+  authorName: \"$mod_author\"
+  websiteUrl: \"$mod_url\"
+  displayName: \"MoreUpgrades\"
+  description: \"$mod_description\"
+  gameVersion: \"0\"
+  networkMode: both
+  packageType: other
+  installMode: unmanaged
+  installedAtTime: $timestamp
+  loaders: []
+  dependencies: []
+  incompatibilities: []
+  optionalDependencies: []
+  versionNumber:
+    major: $major_version
+    minor: $minor_version
+    patch: $patch_version
+  enabled: true
+  icon: \"$mod_path/icon.png\""
+
+    # Check if mod already exists in registry
+    if grep -q "name: \"$mod_name\"" "$mods_yml" 2>/dev/null; then
+        echo "Mod already exists in registry, updating entry..."
+        # For now, we'll just add a new entry (r2modmanPlus will handle duplicates)
+        echo "$mod_entry" >> "$mods_yml"
+        echo "Mod registry entry updated!"
+    else
+        echo "Adding new mod to r2modmanPlus registry..."
+        # Add new entry to mods.yml
+        echo "$mod_entry" >> "$mods_yml"
+        echo "Mod registered successfully!"
+    fi
+}
+
+# Register the mod with r2modmanPlus
+MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+
+if [ -f "$MODS_YML" ]; then
+    add_to_mod_registry \
+        "BULLETBOT-MoreUpgrades" \
+        "$MOD_INSTALL_PATH_REPO" \
+        "1.4.8" \
+        "BULLETBOT" \
+        "Adds more upgrade items to the game, has an library and is highly configurable." \
+        "https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/" \
+        "$MODS_YML"
+else
+    echo "Warning: r2modmanPlus mods.yml not found at $MODS_YML"
+    echo "Mod installed but not registered with r2modmanPlus"
+fi
+
 echo ""
 echo "=========================================="
 echo "  Installation Complete!"
@@ -198,8 +273,13 @@ echo "MoreUpgrades has been successfully installed to:"
 echo "$MOD_INSTALL_PATH_REPO"
 echo ""
 
-
-echo "You can now launch your game with r2modmanPlus to use the mod."
+if [ -f "$MODS_YML" ]; then
+    echo "The mod has been registered with r2modmanPlus and should appear in the mod manager."
+    echo "You can now launch your game with r2modmanPlus to use the mod."
+else
+    echo "You can now launch your game with r2modmanPlus to use the mod."
+    echo "Note: The mod was not registered with r2modmanPlus (mods.yml not found)."
+fi
 echo ""
 
 exit 0

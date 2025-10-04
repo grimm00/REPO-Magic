@@ -16,12 +16,19 @@ This directory contains comprehensive troubleshooting guides for the MoreUpgrade
 - **Status check commands** to diagnose problems
 - **Fast reference** for experienced users
 
+### 🔄 [rollback-troubleshooting.md](rollback-troubleshooting.md) - Mod Rollback Issues
+- **Mod rollback script problems** and solutions
+- **Version management issues** and fixes
+- **Registry update problems** and recovery
+- **SteamOS-specific rollback issues**
+
 ## How to Use This Documentation
 
 1. **Start with quick-fixes.md** if you need immediate help
 2. **Use README.md** for detailed troubleshooting and understanding
-3. **Check SteamOS-specific sections** if you're on Steam Deck
-4. **Follow the command reference** for manual operations
+3. **Use rollback-troubleshooting.md** for mod rollback script issues
+4. **Check SteamOS-specific sections** if you're on Steam Deck
+5. **Follow the command reference** for manual operations
 
 ## Quick Navigation
 

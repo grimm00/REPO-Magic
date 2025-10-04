@@ -7,11 +7,20 @@
 ### 🔧 Permission Denied
 ```bash
 chmod +x modinstaller.sh
+# or for rollback script
+chmod +x modrollback.sh
 ```
 
 ### 🔑 Sudo Password Issues
 - First time: Set a new password when prompted
 - Wrong password: Try again or reset sudo password
+
+### 🔄 Mod Rollback Issues
+- **No mods found:** Check r2modmanPlus installation
+- **Version not found:** Try different version number
+- **Download fails:** Check internet connection
+- **Registry update fails:** Close r2modmanPlus and retry
+- **For detailed rollback troubleshooting:** See [rollback-troubleshooting.md](rollback-troubleshooting.md)
 
 ### 📦 Package Installation Fails
 ```bash
