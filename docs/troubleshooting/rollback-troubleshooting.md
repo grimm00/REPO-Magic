@@ -93,7 +93,11 @@ cp /tmp/mods_clean.yml /home/deck/.config/r2modmanPlus-local/REPO/profiles/Frien
 
 **Prevention:** The mods.yml file contains complex base64-encoded data and should never be edited manually. Always use r2modmanPlus interface or our script's registry update functions.
 
-**Automatic Cleanup:** The `modrollback.sh` script now automatically cleans the mods.yml file before performing rollback operations. If you need to clean the file manually, use:
+**Automatic Cleanup:** Both `modrollback.sh` and `modinstaller.sh` now automatically clean the mods.yml file:
+- **Before operations**: Initial cleanup to ensure file is readable
+- **After registry updates**: Post-write cleanup to prevent corruption from accumulating
+
+If you need to clean the file manually, use:
 ```bash
 ./clean_mods_yml.sh
 ```
