@@ -119,10 +119,14 @@ def fix_yaml_structure(content):
     return '\n'.join(fixed_lines)
 
 try:
-    with open('$MODS_YML', 'r') as f:
+    with open('$MODS_YML', 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()
-        # Remove null bytes
+        # Remove null bytes and other problematic characters
         content = content.replace('\x00', '')
+        content = content.replace('\u0000', '')
+        # Remove any remaining control characters except newlines and tabs
+        import re
+        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
     
     # Try to parse the YAML
     try:

@@ -445,15 +445,23 @@ get_mod_selection() {
     done < "$temp_file"
     
     echo ""
-    read -p "Enter the number of the mod to rollback (1-$mod_count): " selection
     
-    # Validate and sanitize selection
-    selection=$(validate_input "$selection" "number")
-    if [ -z "$selection" ] || [ "$selection" -lt 1 ] || [ "$selection" -gt "$mod_count" ]; then
-        echo -e "${RED}Invalid selection. Please enter a number between 1 and $mod_count.${NC}"
-        log_message "ERROR" "Invalid mod selection: $selection"
-        rm "$temp_file"
-        exit 1
+    # Auto-select if only one mod found
+    if [ "$mod_count" -eq 1 ]; then
+        selection=1
+        echo -e "${GREEN}Only one mod found, auto-selecting...${NC}"
+        log_message "INFO" "Auto-selected single mod match"
+    else
+        read -p "Enter the number of the mod to rollback (1-$mod_count): " selection
+        
+        # Validate and sanitize selection
+        selection=$(validate_input "$selection" "number")
+        if [ -z "$selection" ] || [ "$selection" -lt 1 ] || [ "$selection" -gt "$mod_count" ]; then
+            echo -e "${RED}Invalid selection. Please enter a number between 1 and $mod_count.${NC}"
+            log_message "ERROR" "Invalid mod selection: $selection"
+            rm "$temp_file"
+            exit 1
+        fi
     fi
     
     # Get selected mod info
@@ -766,10 +774,14 @@ def fix_yaml_structure(content):
     return '\n'.join(fixed_lines)
 
 try:
-    with open('$mods_yml', 'r') as f:
+    with open('$mods_yml', 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()
-        # Remove null bytes
+        # Remove null bytes and other problematic characters
         content = content.replace('\x00', '')
+        content = content.replace('\u0000', '')
+        # Remove any remaining control characters except newlines and tabs
+        import re
+        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
     
     # Try to parse the YAML
     try:
