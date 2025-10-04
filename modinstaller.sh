@@ -400,18 +400,100 @@ add_to_mod_registry() {
   enabled: true
   icon: \"$mod_path/icon.png\""
 
-    # Check if mod already exists in registry
-    if grep -q "name: \"$mod_name\"" "$mods_yml" 2>/dev/null; then
-        echo "Mod already exists in registry, updating entry..."
-        # For now, we'll just add a new entry (r2modmanPlus will handle duplicates)
-        echo "$mod_entry" >> "$mods_yml"
-        echo "Mod registry entry updated!"
-    else
-        echo "Adding new mod to r2modmanPlus registry..."
-        # Add new entry to mods.yml
-        echo "$mod_entry" >> "$mods_yml"
-        echo "Mod registered successfully!"
-    fi
+    # Use jq for robust registry update
+    echo "Using jq for registry update..."
+    python3 -c "
+import yaml
+import json
+import subprocess
+import sys
+
+try:
+    # Read and clean the YAML file
+    with open('$mods_yml', 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+        # Remove null bytes and control characters
+        content = content.replace('\x00', '')
+        content = content.replace('\u0000', '')
+        import re
+        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+    
+    # Parse YAML
+    data = yaml.safe_load(content)
+    if not isinstance(data, list):
+        print('❌ Error: mods.yml is not a list')
+        sys.exit(1)
+    
+    # Convert to JSON
+    json_data = json.dumps(data, indent=2)
+    
+    # Check if mod already exists
+    result = subprocess.run(['jq', f'.[] | select(.name == \"$mod_name\")'], input=json_data, text=True, capture_output=True)
+    mod_exists = result.returncode == 0 and result.stdout.strip()
+    
+    if mod_exists:
+        print('Mod already exists in registry, updating entry...')
+        # Remove old entry
+        jq_remove_cmd = ['jq', f'del(.[] | select(.name == \"$mod_name\"))']
+        result = subprocess.run(jq_remove_cmd, input=json_data, text=True, capture_output=True)
+        if result.returncode != 0:
+            print(f'❌ jq remove failed: {result.stderr}')
+            sys.exit(1)
+        updated_json = result.stdout
+    else:
+        print('Adding new mod to r2modmanPlus registry...')
+        updated_json = json_data
+    
+    # Create new mod entry JSON
+    new_mod_json = {
+        'manifestVersion': 1,
+        'name': '$mod_name',
+        'authorName': '$mod_author',
+        'websiteUrl': '$mod_url',
+        'displayName': 'MoreUpgrades',
+        'description': '$mod_description',
+        'gameVersion': '0',
+        'networkMode': 'both',
+        'packageType': 'other',
+        'installMode': 'unmanaged',
+        'installedAtTime': int(subprocess.run(['date', '+%s'], capture_output=True, text=True).stdout.strip()) * 1000,
+        'loaders': [],
+        'dependencies': [],
+        'incompatibilities': [],
+        'optionalDependencies': [],
+        'versionNumber': {
+            'major': int('$major_version'),
+            'minor': int('$minor_version'),
+            'patch': int('$patch_version')
+        },
+        'enabled': True,
+        'icon': '$mod_path/icon.png'
+    }
+    
+    # Add the new mod entry using jq
+    new_mod_json_str = json.dumps(new_mod_json)
+    jq_add_cmd = ['jq', f'. + [{new_mod_json_str}]']
+    result = subprocess.run(jq_add_cmd, input=updated_json, text=True, capture_output=True)
+    
+    if result.returncode != 0:
+        print(f'❌ jq add failed: {result.stderr}')
+        sys.exit(1)
+    
+    final_json = result.stdout
+    
+    # Convert back to YAML
+    final_data = json.loads(final_json)
+    
+    # Write back to file
+    with open('$mods_yml', 'w') as f:
+        yaml.dump(final_data, f, default_flow_style=False, allow_unicode=True)
+    
+    print('✅ Successfully updated mod registry using jq')
+    
+except Exception as e:
+    print(f'❌ Error updating registry: {e}')
+    sys.exit(1)
+"
     
     # Clean up the mods.yml file after writing to prevent corruption
     echo "Cleaning up mods.yml after registry update..."

@@ -902,45 +902,95 @@ update_mod_registry() {
     # Create backup of mods.yml
     cp "$mods_yml" "${mods_yml}.backup.$(date +%s)"
     
-    # Remove old entry and add new one
-    # This is a simplified approach - in production you'd want more sophisticated YAML manipulation
-    awk -v target="$mod_name" -v new_entry="$new_mod_entry" '
-    BEGIN { 
-        in_target_mod = 0
-        skip_until_next_mod = 0
-        entry_added = 0
+    # Use jq for robust YAML manipulation
+    echo "Using jq for registry update..."
+    python3 -c "
+import yaml
+import json
+import subprocess
+import sys
+import tempfile
+import os
+
+try:
+    # Read and clean the YAML file
+    with open('$mods_yml', 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+        # Remove null bytes and control characters
+        content = content.replace('\x00', '')
+        content = content.replace('\u0000', '')
+        import re
+        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+    
+    # Parse YAML
+    data = yaml.safe_load(content)
+    if not isinstance(data, list):
+        print('❌ Error: mods.yml is not a list')
+        sys.exit(1)
+    
+    # Convert to JSON
+    json_data = json.dumps(data, indent=2)
+    
+    # Use jq to remove the old mod entry
+    jq_remove_cmd = ['jq', f'del(.[] | select(.name == \"$mod_name\"))']
+    result = subprocess.run(jq_remove_cmd, input=json_data, text=True, capture_output=True)
+    
+    if result.returncode != 0:
+        print(f'❌ jq remove failed: {result.stderr}')
+        sys.exit(1)
+    
+    updated_json = result.stdout
+    
+    # Create new mod entry JSON
+    new_mod_json = {
+        'manifestVersion': 1,
+        'name': '$mod_name',
+        'authorName': '$author',
+        'websiteUrl': f'https://thunderstore.io/c/repo/p/$mod_name/',
+        'displayName': '${mod_name##*-}',
+        'description': f'Rolled back to version $new_version',
+        'gameVersion': '0',
+        'networkMode': 'both',
+        'packageType': 'other',
+        'installMode': 'unmanaged',
+        'installedAtTime': int(subprocess.run(['date', '+%s'], capture_output=True, text=True).stdout.strip()) * 1000,
+        'loaders': [],
+        'dependencies': [],
+        'incompatibilities': [],
+        'optionalDependencies': [],
+        'versionNumber': {
+            'major': int('$major_version'),
+            'minor': int('$minor_version'),
+            'patch': int('$patch_version')
+        },
+        'enabled': True,
+        'icon': f'${MOD_PLUGIN_PATH}/$mod_name/icon.png'
     }
-    /^- manifestVersion:/ { 
-        if (skip_until_next_mod) {
-            skip_until_next_mod = 0
-        }
-        in_mod = 1
-    }
-    /^  name:/ { 
-        gsub(/^  name: /, ""); 
-        gsub(/"/, ""); 
-        current_mod = $0
-        if (current_mod == target) {
-            in_target_mod = 1
-            skip_until_next_mod = 1
-            next
-        }
-    }
-    /^[^-]/ && !/^  / { 
-        if (in_target_mod && !entry_added) {
-            print new_entry
-            entry_added = 1
-        }
-        in_mod = 0
-        in_target_mod = 0
-    }
-    !skip_until_next_mod { print }
-    END {
-        if (!entry_added) {
-            print new_entry
-        }
-    }
-    ' "$mods_yml" > "${mods_yml}.tmp" && mv "${mods_yml}.tmp" "$mods_yml"
+    
+    # Add the new mod entry using jq
+    new_mod_json_str = json.dumps(new_mod_json)
+    jq_add_cmd = ['jq', f'. + [{new_mod_json_str}]']
+    result = subprocess.run(jq_add_cmd, input=updated_json, text=True, capture_output=True)
+    
+    if result.returncode != 0:
+        print(f'❌ jq add failed: {result.stderr}')
+        sys.exit(1)
+    
+    final_json = result.stdout
+    
+    # Convert back to YAML
+    final_data = json.loads(final_json)
+    
+    # Write back to file
+    with open('$mods_yml', 'w') as f:
+        yaml.dump(final_data, f, default_flow_style=False, allow_unicode=True)
+    
+    print('✅ Successfully updated mod registry using jq')
+    
+except Exception as e:
+    print(f'❌ Error updating registry: {e}')
+    sys.exit(1)
+"
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Mod registry updated successfully!${NC}"
