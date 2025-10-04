@@ -830,6 +830,16 @@ update_mod_registry() {
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Mod registry updated successfully!${NC}"
         log_message "INFO" "Mod registry updated successfully for $mod_name"
+        
+        # Clean up the mods.yml file after writing to prevent corruption
+        echo "Cleaning up mods.yml after registry update..."
+        if clean_mods_yml "$mods_yml"; then
+            echo -e "${GREEN}mods.yml cleaned and validated after update${NC}"
+            log_message "INFO" "mods.yml cleaned and validated after registry update"
+        else
+            echo -e "${YELLOW}Warning: Could not clean mods.yml after update${NC}"
+            log_message "WARN" "Could not clean mods.yml after registry update"
+        fi
     else
         echo -e "${RED}Failed to update mod registry!${NC}"
         log_message "ERROR" "Failed to update mod registry for $mod_name"

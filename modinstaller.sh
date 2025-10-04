@@ -190,6 +190,76 @@ fi
 # Remove the install directory
 rm -r $MOD_INSTALL_PATH
 
+# Function to clean and validate mods.yml file
+clean_mods_yml() {
+    local mods_yml="$1"
+    
+    echo "Checking and cleaning mods.yml file..."
+    
+    # Check if file exists
+    if [ ! -f "$mods_yml" ]; then
+        echo "Error: mods.yml file not found at: $mods_yml"
+        return 1
+    fi
+    
+    # Check for null bytes
+    if grep -q $'\0' "$mods_yml"; then
+        echo "Found null bytes in mods.yml, cleaning..."
+        
+        # Clean null bytes and re-serialize YAML
+        python3 -c "
+import yaml
+import sys
+
+try:
+    with open('$mods_yml', 'r') as f:
+        content = f.read()
+        # Remove null bytes
+        content = content.replace('\x00', '')
+        
+    # Parse and re-serialize to clean up the YAML
+    data = yaml.safe_load(content)
+    
+    # Write back clean YAML
+    with open('$mods_yml', 'w') as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+    
+    print('✅ Successfully cleaned mods.yml of null bytes and re-serialized')
+    
+except Exception as e:
+    print(f'❌ Error cleaning mods.yml: {e}')
+    sys.exit(1)
+" || {
+            echo "Failed to clean mods.yml"
+            return 1
+        }
+    else
+        echo "No null bytes found in mods.yml"
+    fi
+    
+    # Validate YAML syntax
+    echo "Validating YAML syntax..."
+    if python3 -c "
+import yaml
+try:
+    with open('$mods_yml', 'r') as f:
+        yaml.safe_load(f)
+    print('✅ YAML syntax is valid')
+except yaml.YAMLError as e:
+    print(f'❌ YAML syntax error: {e}')
+    exit(1)
+except Exception as e:
+    print(f'❌ Error validating YAML: {e}')
+    exit(1)
+"; then
+        echo "mods.yml is clean and valid"
+        return 0
+    else
+        echo "mods.yml has syntax errors"
+        return 1
+    fi
+}
+
 # Function to add mod to r2modmanPlus registry
 add_to_mod_registry() {
     local mod_name="$1"
@@ -245,6 +315,14 @@ add_to_mod_registry() {
         # Add new entry to mods.yml
         echo "$mod_entry" >> "$mods_yml"
         echo "Mod registered successfully!"
+    fi
+    
+    # Clean up the mods.yml file after writing to prevent corruption
+    echo "Cleaning up mods.yml after registry update..."
+    if clean_mods_yml "$mods_yml"; then
+        echo "mods.yml cleaned and validated after update"
+    else
+        echo "Warning: Could not clean mods.yml after update"
     fi
 }
 
