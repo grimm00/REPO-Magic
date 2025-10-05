@@ -69,7 +69,7 @@ gh repo create REPO-Magic --public --description "Universal mod installer and ro
 git remote add origin https://github.com/YOUR_USERNAME/REPO-Magic.git
 
 # Push to GitHub
-git push -u origin master
+git push -u origin main
 ```
 
 ## Step 4: Set Up Sourcery Integration
@@ -177,9 +177,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ main ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ main ]
 
 jobs:
   test:
@@ -290,7 +290,7 @@ gh api repos/YOUR_USERNAME/REPO-Magic --method PATCH --field has_wiki=true
 ### Set Up Branch Protection
 ```bash
 # Create branch protection rule
-gh api repos/YOUR_USERNAME/REPO-Magic/branches/master/protection \
+gh api repos/YOUR_USERNAME/REPO-Magic/branches/main/protection \
   --method PUT \
   --field required_status_checks='{"strict":true,"contexts":["test"]}' \
   --field enforce_admins=true \
@@ -369,7 +369,7 @@ git commit -m "Set up GitHub integration and documentation
 Ready for community contributions!"
 
 # Push to GitHub
-git push origin master
+git push origin main
 ```
 
 ## Step 9: Create First Release
