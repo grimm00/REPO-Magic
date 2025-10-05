@@ -274,6 +274,9 @@ jq -r '.[].name' /home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mod
 - ✅ **Mod discovery uses mods.yml as authoritative source**
 - ✅ **Scripts show correct mods for each profile**
 - ✅ **No variable scope issues with mod discovery**
+- ✅ **HIGH priority Sourcery bug fixes implemented (Comments #2 & #3)**
+- ✅ **Whitespace trimming works correctly in profile names**
+- ✅ **MODS_YML properly exported for subshell compatibility**
 - ✅ Existing functionality unchanged for valid inputs
 
 ## Risk Mitigation
