@@ -21,13 +21,12 @@ jobs:
         VERSION=${GITHUB_REF#refs/tags/}
         echo "Version: $VERSION"
         
+        # Set version for package creation
+        export VERSION=${VERSION#v}  # Remove 'v' prefix (v1.1 -> 1.1)
+        
         # Create both packages
         ./create_package.sh
         ./create_user_package.sh
-        
-        # Move packages to /tmp for release
-        cp /tmp/REPO-Magic-v$VERSION.zip /tmp/REPO-Magic-v$VERSION.zip
-        cp /tmp/REPO-Magic-User-v$VERSION.zip /tmp/REPO-Magic-User-v$VERSION.zip
         
         echo "Packages created successfully"
         
@@ -87,8 +86,8 @@ jobs:
           --title "Release $VERSION - Mod Management Tools" \
           --notes-file release_notes.md \
           --latest \
-          /tmp/REPO-Magic-v$VERSION.zip \
-          /tmp/REPO-Magic-User-v$VERSION.zip
+          /tmp/REPO-Magic-v${VERSION#v}.zip \
+          /tmp/REPO-Magic-User-v${VERSION#v}.zip
           
     - name: Update documentation
       run: |
