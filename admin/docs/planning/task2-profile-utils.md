@@ -173,6 +173,28 @@ resolve_profile() {
   - ✅ Simpler implementation
   - ✅ Contains all metadata (author, version, enabled status)
 
+### 6. Address HIGH Priority Sourcery Code Quality Issues
+
+**Problem Identified**: Sourcery review identified 2 HIGH priority bug risks in the profile utilities implementation.
+
+**Issues Found**:
+1. **Comment #2**: Whitespace trimming happened after validation, rejecting valid profile names with leading/trailing spaces
+2. **Comment #3**: `MODS_YML` variable wasn't exported, potentially causing issues in subshells
+
+**Implementation**:
+- **Fix Comment #2**: Move whitespace trimming to beginning of `sanitize_profile_name()` function
+  - Trim whitespace before validation checks
+  - Add check for empty names after trimming
+  - Prevents rejection of valid profile names like `" Friends "`
+- **Fix Comment #3**: Export `MODS_YML` variable in `resolve_profile()` function
+  - Add `export` keyword to make it consistent with `MOD_PLUGIN_PATH`
+  - Ensures `MODS_YML` is available in subshells and downstream scripts
+- Benefits:
+  - ✅ Prevents user issues with profile names containing whitespace
+  - ✅ Ensures mod discovery works correctly in all contexts
+  - ✅ Simple one-line fixes with high impact
+  - ✅ No breaking changes, only improvements
+
 ## Files to Change
 
 ### New Files
@@ -277,8 +299,9 @@ If issues arise, we can quickly revert by:
 6. **Add mods.yml-based discovery functions to `lib/yaml_utils.sh`**
 7. **Update `lib/mod_utils.sh` to use mods.yml instead of filesystem scanning**
 8. **Test mod discovery with different profiles**
-9. Run comprehensive test suite
-10. Commit and push changes
+9. **Address HIGH priority Sourcery code quality issues (Comments #2 & #3)**
+10. Run comprehensive test suite
+11. Commit and push changes
 
 ## Success Metrics
 
@@ -287,5 +310,8 @@ If issues arise, we can quickly revert by:
 - Security improved with input validation
 - **Mod discovery reliability improved (mods.yml-based)**
 - **Profile-specific mod lists working correctly**
+- **HIGH priority code quality issues addressed (Sourcery Comments #2 & #3)**
+- **Profile name whitespace handling improved**
+- **MODS_YML export consistency achieved**
 - All existing functionality preserved
 - Clear error messages for invalid inputs
