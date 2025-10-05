@@ -30,10 +30,22 @@ echo ""
 OUTPUT_FILE=""
 SHOW_DETAILS=true
 THINK_MODE=false
+RICH_DETAILS=false
 
 # ============================================================================
 # FIXED PARSING FUNCTIONS
 # ============================================================================
+
+# Sanitize a text block: remove control chars and escape HTML for safe embedding
+sanitize_block() {
+    local in="$1"
+    # Remove ASCII control characters except tab/newline
+    local cleaned
+    cleaned=$(printf "%s" "$in" | tr -d '\000-\010\013\014\016-\037\177')
+    # Escape HTML special chars
+    cleaned=$(printf "%s" "$cleaned" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g')
+    echo "$cleaned"
+}
 
 extract_sourcery_review() {
     local pr_number="$1"
@@ -189,11 +201,37 @@ format_single_comment_fixed() {
     
     # Add collapsible full content (optional)
     if [ "$SHOW_DETAILS" = true ]; then
-        output+="<details>\n<summary>Full Comment Content</summary>\n\n"
-        output+="\`\`\`\n"
-        output+="$content"
-        output+="\n\`\`\`\n\n"
-        output+="</details>\n\n"
+        if [ "$RICH_DETAILS" = true ]; then
+            # Extract structured sections
+            local code_ctx_raw=$(echo "$content" | sed -n '/<code_context>/,/<\/code_context>/p' | sed '1d;$d')
+            local issue_text_raw=$(echo "$content" | sed -n '/<issue_to_address>/,/```/p' | sed '1d' | sed '/^```/q' | sed '/^$/d' | sed -n '1p')
+            local suggestion_raw=$(echo "$content" | sed -n '/```suggestion/,/```/p' | sed '1d;$d')
+
+            local code_ctx=$(sanitize_block "$code_ctx_raw")
+            local issue_text=$(sanitize_block "$issue_text_raw")
+            local suggestion=$(sanitize_block "$suggestion_raw")
+
+            output+="<details>\n<summary>Details</summary>\n\n"
+            if [ -n "$code_ctx" ]; then
+                output+="<b>Code Context</b>\n\n<pre><code>\n$code_ctx\n</code></pre>\n\n"
+            fi
+            if [ -n "$issue_text" ]; then
+                output+="<b>Issue</b>\n\n$issue_text\n\n"
+            fi
+            if [ -n "$suggestion" ]; then
+                output+="<b>Suggestion</b>\n\n<pre><code>\n$suggestion\n</code></pre>\n\n"
+            fi
+            # Fallback: if nothing extracted, include sanitized raw
+            if [ -z "$code_ctx$issue_text$suggestion" ]; then
+                local raw_sanitized=$(sanitize_block "$content")
+                output+="<pre><code>\n$raw_sanitized\n</code></pre>\n\n"
+            fi
+            output+="</details>\n\n"
+        else
+            # Raw details but sanitized and HTML-escaped to avoid markdown collisions
+            local raw_sanitized=$(sanitize_block "$content")
+            output+="<details>\n<summary>Full Comment Content</summary>\n\n<pre><code>\n$raw_sanitized\n</code></pre>\n\n</details>\n\n"
+        fi
     fi
     output+="---\n\n"
     
@@ -221,6 +259,11 @@ while [[ $# -gt 0 ]]; do
             SHOW_DETAILS=false
             shift 1
             ;;
+        --rich-details)
+            SHOW_DETAILS=true
+            RICH_DETAILS=true
+            shift 1
+            ;;
         --help|-h)
             echo "Usage: $0 [PR_NUMBER] [OPTIONS]"
             echo ""
@@ -231,6 +274,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --output FILE      - Save output to file"
             echo "  --think            - Include reasoning about how fields were extracted"
             echo "  --no-details       - Omit verbose \"Full Comment Content\" sections"
+            echo "  --rich-details     - Structure details into Code Context and Suggestion blocks"
             echo "  --help             - Show this help message"
             echo ""
             echo "Examples:"
@@ -239,6 +283,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 123 --output review.md         # Save to file"
             echo "  $0 123 --think                    # Show extraction reasoning"
             echo "  $0 123 --no-details               # Compact output"
+            echo "  $0 123 --rich-details             # Structured details output"
             exit 0
             ;;
         *)
