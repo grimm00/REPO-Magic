@@ -5,12 +5,20 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Colors for output (with fallback for terminals that don't support colors)
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    BLUE=''
+    YELLOW=''
+    NC=''
+fi
 
 # Package configuration
 PACKAGE_NAME="REPO-Magic-User-v1.0"
@@ -39,28 +47,28 @@ echo -e "${BLUE}Copying core files...${NC}"
 cp modrollback.sh "$PACKAGE_DIR/"
 cp modinstaller.sh "$PACKAGE_DIR/"
 cp clean_mods_yml.sh "$PACKAGE_DIR/"
-echo "✅ Core scripts copied"
+echo "[OK] Core scripts copied"
 
 # Library files
 mkdir -p "$PACKAGE_DIR/lib"
 cp lib/*.sh "$PACKAGE_DIR/lib/" 2>/dev/null || true
-echo "✅ Library files copied"
+echo "[OK] Library files copied"
 
 # Standalone scripts
 mkdir -p "$PACKAGE_DIR/scripts/standalone"
 cp scripts/standalone/*.sh "$PACKAGE_DIR/scripts/standalone/" 2>/dev/null || true
-echo "✅ Standalone scripts copied"
+echo "[OK] Standalone scripts copied"
 
 # Essential documentation only (no admin files)
 mkdir -p "$PACKAGE_DIR/docs"
 cp -r docs/guides "$PACKAGE_DIR/docs/" 2>/dev/null || true
 cp -r docs/troubleshooting "$PACKAGE_DIR/docs/" 2>/dev/null || true
-echo "✅ Essential documentation copied"
+echo "[OK] Essential documentation copied"
 
 # Installation and dependency scripts
 cp install.sh "$PACKAGE_DIR/"
 cp check_dependencies.sh "$PACKAGE_DIR/"
-echo "✅ Installation scripts copied"
+echo "[OK] Installation scripts copied"
 
 # Create user-friendly README
 cat > "$PACKAGE_DIR/README.md" << 'EOL'
@@ -110,24 +118,24 @@ cat > "$PACKAGE_DIR/README.md" << 'EOL'
 
 Check the `docs/` folder for detailed guides and troubleshooting.
 
-## 🎉 Happy Modding!
+## [SUCCESS] Happy Modding!
 
 EOL
 
-echo "✅ User-friendly README created"
+echo "[OK] User-friendly README created"
 echo ""
 
 # Set up package permissions
 echo -e "${BLUE}Setting up package permissions...${NC}"
 find "$PACKAGE_DIR" -name "*.sh" -exec chmod +x {} \;
-echo "✅ Set executable permissions"
+echo "[OK] Set executable permissions"
 echo ""
 
 # Create package archive
 echo -e "${BLUE}Creating package archive...${NC}"
 cd /tmp
 zip -r "${PACKAGE_NAME}.zip" "$PACKAGE_NAME" >/dev/null
-echo "✅ Package created: /tmp/${PACKAGE_NAME}.zip"
+echo "[OK] Package created: /tmp/${PACKAGE_NAME}.zip"
 
 # Show package info
 PACKAGE_SIZE=$(du -h "/tmp/${PACKAGE_NAME}.zip" | cut -f1)
@@ -142,7 +150,7 @@ echo "... (and more files)"
 echo ""
 
 echo "=========================================="
-echo -e "🎉 ${GREEN}User package creation complete!${NC}"
+echo -e "[SUCCESS] ${GREEN}User package creation complete!${NC}"
 echo "=========================================="
 echo ""
 echo -e "${BLUE}Package location:${NC} /tmp/${PACKAGE_NAME}.zip"
@@ -163,4 +171,4 @@ echo ""
 # Clean up temporary directory
 echo -e "${BLUE}Cleaning up temporary directory...${NC}"
 rm -rf "$PACKAGE_DIR"
-echo "✅ Cleanup complete"
+echo "[OK] Cleanup complete"

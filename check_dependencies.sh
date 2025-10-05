@@ -3,12 +3,20 @@
 # Dependency Check Script for REPO-Magic
 # This script checks for all required and optional dependencies
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Colors for output (with fallback for terminals that don't support colors)
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
 
 echo "=========================================="
 echo "  REPO-Magic Dependency Check"
@@ -54,15 +62,15 @@ check_dependency() {
         esac
         
         if [ "$required" = "true" ]; then
-            echo -e "✅ ${GREEN}$dep${NC} - $version ${GREEN}(Required)${NC}"
+            echo -e "[OK] ${GREEN}$dep${NC} - $version ${GREEN}(Required)${NC}"
             return 0
         else
-            echo -e "✅ ${GREEN}$dep${NC} - $version ${BLUE}(Optional)${NC}"
+            echo -e "[OK] ${GREEN}$dep${NC} - $version ${BLUE}(Optional)${NC}"
             return 0
         fi
     else
         if [ "$required" = "true" ]; then
-            echo -e "❌ ${RED}$dep${NC} - ${RED}NOT FOUND (Required)${NC}"
+            echo -e "[ERROR] ${RED}$dep${NC} - ${RED}NOT FOUND (Required)${NC}"
             return 1
         else
             echo -e "⚠️  ${YELLOW}$dep${NC} - ${YELLOW}NOT FOUND (Optional)${NC}"
@@ -93,11 +101,11 @@ echo "=========================================="
 
 # Summary
 if [ $missing_required -eq 0 ]; then
-    echo -e "🎉 ${GREEN}All required dependencies are installed!${NC}"
+    echo -e "[SUCCESS] ${GREEN}All required dependencies are installed!${NC}"
     echo -e "   You can run the mod management tools."
     exit 0
 else
-    echo -e "❌ ${RED}$missing_required required dependencies are missing.${NC}"
+    echo -e "[ERROR] ${RED}$missing_required required dependencies are missing.${NC}"
     echo ""
     echo -e "${YELLOW}Installation Instructions:${NC}"
     echo "----------------------------------------"
