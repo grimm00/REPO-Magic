@@ -170,13 +170,35 @@ EOF
 ```
 
 ### Set Up Sourcery Webhook
+
+✅ **Already Created**: The Sourcery webhook has been successfully set up for your repository.
+
+**Webhook Details:**
+- **ID**: 573446199
+- **URL**: https://sourcery.ai/webhook
+- **Events**: push, pull_request
+- **Status**: Active
+
+**If you need to recreate it:**
 ```bash
-# Add Sourcery webhook to repository
-gh api repos/YOUR_USERNAME/REPO-Magic/hooks \
-  --method POST \
-  --field name="sourcery" \
-  --field config='{"url":"https://sourcery.ai/webhook","content_type":"json"}' \
-  --field events='["push","pull_request"]'
+# Create webhook configuration file
+cat > webhook_config.json << 'EOF'
+{
+  "name": "web",
+  "config": {
+    "url": "https://sourcery.ai/webhook",
+    "content_type": "json"
+  },
+  "events": ["push", "pull_request"],
+  "active": true
+}
+EOF
+
+# Create the webhook
+gh api repos/grimm00/REPO-Magic/hooks --method POST --input webhook_config.json
+
+# Clean up
+rm webhook_config.json
 ```
 
 ## Step 5: Create GitHub Workflows
