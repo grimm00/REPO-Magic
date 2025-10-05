@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Sourcery Review Parser - Simple and Reliable Version
+# Sourcery Review Parser - Final Fixed Version
 # Extracts and formats Sourcery reviews for manual priority matrix assessment
 
 # Get the script directory for relative imports
@@ -20,7 +20,7 @@ if ! gh_init_github_utils; then
     exit 1
 fi
 
-gh_print_header "📋 Sourcery Review Parser (Simple)"
+gh_print_header "📋 Sourcery Review Parser (Fixed)"
 echo ""
 
 # ============================================================================
@@ -30,7 +30,7 @@ echo ""
 OUTPUT_FILE=""
 
 # ============================================================================
-# SIMPLE PARSING FUNCTIONS
+# FIXED PARSING FUNCTIONS
 # ============================================================================
 
 extract_sourcery_review() {
@@ -54,11 +54,11 @@ extract_sourcery_review() {
         return 1
     fi
     
-    # Create simple, clean output
-    create_simple_output "$markdown_content" "$pr_number"
+    # Create clean output
+    create_clean_output "$markdown_content" "$pr_number"
 }
 
-create_simple_output() {
+create_clean_output() {
     local content="$1"
     local pr_number="$2"
     
@@ -88,7 +88,7 @@ create_simple_output() {
         if [[ "$line" =~ ^###\ Comment\ ([0-9]+) ]]; then
             # Process previous comment if exists
             if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
-                output+=$(format_single_comment "$comment_num" "$current_comment")
+                output+=$(format_single_comment_fixed "$comment_num" "$current_comment")
             fi
             
             # Start new comment
@@ -102,7 +102,7 @@ create_simple_output() {
     
     # Process the last comment
     if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
-        output+=$(format_single_comment "$comment_num" "$current_comment")
+        output+=$(format_single_comment_fixed "$comment_num" "$current_comment")
     fi
     
     # Priority Matrix Template
@@ -111,7 +111,7 @@ create_simple_output() {
     output+="| Comment | Priority | Impact | Effort | Notes |\n"
     output+="|---------|----------|--------|--------|-------|\n"
     
-    # Add empty rows for each comment
+    # Add clean rows for each comment
     for i in $(seq 1 $comment_count); do
         output+="| #$i | | | | |\n"
     done
@@ -143,7 +143,7 @@ create_simple_output() {
     fi
 }
 
-format_single_comment() {
+format_single_comment_fixed() {
     local comment_num="$1"
     local content="$2"
     
@@ -151,19 +151,19 @@ format_single_comment() {
     
     output+="### Comment #$comment_num\n\n"
     
-    # Extract location (simple approach)
+    # Extract location (FIXED - remove all backticks and extra spaces)
     local location=$(echo "$content" | grep -o '<location>.*</location>' | sed 's/<[^>]*>//g' | sed 's/`//g' | sed 's/^ *//;s/ *$//' | head -1)
     if [ -n "$location" ]; then
         output+="**Location**: \`$location\`\n\n"
     fi
     
-    # Extract issue type (simple approach)
+    # Extract issue type (FIXED - remove trailing colons)
     local issue_type=$(echo "$content" | grep -o '\*\*[^*]*\*\*' | head -1 | sed 's/\*\*//g' | sed 's/:$//')
     if [ -n "$issue_type" ]; then
         output+="**Type**: $issue_type\n\n"
     fi
     
-    # Extract description (simple approach - first line after issue_to_address)
+    # Extract description (FIXED - get clean description without markdown)
     local description=$(echo "$content" | sed -n '/<issue_to_address>/,/```/p' | grep -v '<issue_to_address>' | grep -v '^$' | grep -v '^\*\*' | head -1 | sed 's/^ *//;s/ *$//')
     if [ -n "$description" ]; then
         output+="**Description**: $description\n\n"
