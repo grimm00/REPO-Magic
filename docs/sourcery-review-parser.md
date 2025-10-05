@@ -235,6 +235,15 @@ sourcery-review-parser.sh
 5. **Plan Implementation**: Focus on high-priority items
 6. **Track Progress**: Re-parse after addressing issues
 
+### Handling incomplete/partial reviews
+
+- Sometimes the GitHub UI or API returns truncated Sourcery comments (missing code blocks or sections).
+- When fields are incomplete, the parser may omit rows or leave blanks by design (to avoid mixing partial data).
+- Recommended workflow:
+  - Re-run the parser against the latest PR state.
+  - If the missing context is still not present, manually copy the relevant text from the PR UI and paste it below the corresponding comment in the output file (clearly mark as “Manual context”).
+  - Optionally, maintain a separate appendix with manual additions for auditability.
+
 ### Sprint Planning
 
 1. **Extract Reviews**: Parse all relevant PRs
