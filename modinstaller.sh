@@ -1,541 +1,261 @@
 #!/usr/bin/env bash
 
-# Set up cleanup function to re-enable read-only mode on exit
-cleanup() {
-    if [ "$readonly_disabled" = true ]; then
-        echo ""
-        echo "Re-enabling SteamOS read-only mode..."
-        if sudo steamos-readonly enable; then
-            echo "Read-only mode re-enabled successfully."
-        else
-            echo "Warning: Could not re-enable read-only mode. You may want to run:"
-            echo "sudo steamos-readonly enable"
-        fi
-    fi
+# Mod Installer for SteamOS (Modular Version)
+# Installs the MoreUpgrades mod for Risk of Rain 2
+# Uses modular libraries for better maintainability
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source all library files
+source "$SCRIPT_DIR/lib/logging_utils.sh"
+source "$SCRIPT_DIR/lib/steamos_utils.sh"
+source "$SCRIPT_DIR/lib/yaml_utils.sh"
+source "$SCRIPT_DIR/lib/registry_utils.sh"
+
+# Define colors for output
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Configuration
+MOD_NAME="BULLETBOT-MoreUpgrades"
+MOD_VERSION="1.4.8"
+MOD_AUTHOR="BULLETBOT"
+MOD_DESCRIPTION="Adds more upgrade items to the game, has an library and is highly configurable."
+MOD_URL="https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/"
+MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/MoreUpgrades"
+MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -v, --verbose    Enable verbose logging"
+    echo "  -h, --help       Show this help message"
+    echo ""
+    echo "This script installs the MoreUpgrades mod for Risk of Rain 2 on SteamOS."
 }
 
-# Set trap to run cleanup on script exit (success or failure)
-trap cleanup EXIT
-
-MOD_NAME="MoreUpgrades"
-MOD_DOWNLOAD_URL="https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/"
-MOD_INSTALL_PATH="/tmp/MoreUpgrades"
-MOD_PLUGIN_PATH="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/"
-MOD_INSTALL_PATH_REPO="$MOD_PLUGIN_PATH/$MOD_NAME"
-
-# Welcome message and instructions
-echo "=========================================="
-echo "  MoreUpgrades Mod Installer for SteamOS"
-echo "=========================================="
-echo ""
-echo "This script will:"
-echo "1. Remove any existing MoreUpgrades installations"
-echo "2. Install required dependencies (curl, unzip)"
-echo "3. Download and install the latest MoreUpgrades mod"
-echo ""
-
-# Check if we can run sudo commands
-if ! sudo -n true 2>/dev/null; then
-    echo "This script needs sudo privileges to install dependencies."
-    echo ""
-    echo "If this is your first time using sudo on SteamOS, you'll be prompted to:"
-    echo "1. Set a new sudo password (if not already set)"
-    echo "2. Enter that password to authenticate"
-    echo ""
-    echo "Note: The password you type will not be visible on screen for security."
-    echo ""
-    read -p "Press Enter to continue or Ctrl+C to cancel..."
-    echo ""
+# Function to parse command line arguments
+parse_arguments() {
+    VERBOSE=false
     
-    # Test sudo with password prompt
-    echo "Authenticating with sudo..."
-    if ! sudo -v; then
-        echo ""
-        echo "Sudo authentication failed. This could be because:"
-        echo "- You entered the wrong password"
-        echo "- You cancelled the password prompt"
-        echo "- There was an issue setting up sudo for the first time"
-        echo ""
-        echo "Please try running the script again."
-        exit 1
-    fi
-    echo "Sudo authentication successful!"
-    echo ""
-fi
-
-# Disable SteamOS read-only mode for package installation
-echo "Disabling SteamOS read-only mode..."
-if sudo steamos-readonly disable; then
-    echo "Read-only mode disabled successfully."
-    readonly_disabled=true
-else
-    echo "Warning: Could not disable read-only mode. Installation may fail."
-    readonly_disabled=false
-fi
-echo ""
-
-# Check if any MoreUpgrades mod is installed (case-insensitive)
-moreupgrades_items=()
-
-# Find all files and directories with "moreupgrades" (case-insensitive)
-while IFS= read -r -d '' item; do
-    moreupgrades_items+=("$item")
-done < <(find "$MOD_PLUGIN_PATH" -iname "*$MOD_NAME*" -print0 2>/dev/null)
-
-# If MoreUpgrades items are found, remove them
-if [ ${#moreupgrades_items[@]} -gt 0 ]; then
-    echo "Found ${#moreupgrades_items[@]} existing MoreUpgrades items:"
-    for item in "${moreupgrades_items[@]}"; do
-        echo "  $item"
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}"
+                show_usage
+                exit 1
+                ;;
+            *)
+                echo -e "${RED}Unexpected argument: $1${NC}"
+                show_usage
+                exit 1
+                ;;
+        esac
     done
+}
+
+# Function to initialize the script
+init_script() {
+    echo -e "${BLUE}==========================================${NC}"
+    echo -e "${BLUE}  MoreUpgrades Mod Installer for SteamOS${NC}"
+    echo -e "${BLUE}  (Modular Version)${NC}"
+    echo -e "${BLUE}==========================================${NC}"
+    echo ""
+    echo "This script will install the MoreUpgrades mod for Risk of Rain 2."
+    echo ""
     
-    echo "Removing existing MoreUpgrades installations..."
-    for item in "${moreupgrades_items[@]}"; do
-        if [ -d "$item" ]; then
-            echo "Removing directory: $item"
-            rm -rf "$item"
-        elif [ -f "$item" ]; then
-            echo "Removing file: $item"
-            rm -f "$item"
-        fi
-    done
-    echo "Cleanup complete. Proceeding with fresh installation..."
-fi
-
-# Install dependencies
-echo "Installing required dependencies (curl, unzip)..."
-
-# Initialize pacman keyring if needed (common issue on SteamOS)
-if ! sudo pacman-key --list-sigs 2>/dev/null | grep -q "uid"; then
-    echo "Initializing pacman keyring (this may take a moment)..."
-    sudo pacman-key --init
-    sudo pacman-key --populate archlinux
-fi
-
-# Add SteamOS-specific keys for package verification
-echo "Adding SteamOS package keys..."
-sudo pacman-key --populate steamos 2>/dev/null || echo "SteamOS keys not found, continuing with Arch keys only..."
-
-# Try to install dependencies
-if sudo pacman -S --noconfirm curl unzip; then
-    echo "Dependencies installed successfully!"
-else
-    echo "Standard installation failed. Trying SteamOS-specific approach..."
+    # Initialize logging
+    init_logging "modinstaller-modular" "$VERBOSE"
+    log_message "INFO" "Mod Installer (Modular) started"
     
-    # For SteamOS, we might need to trust the SteamOS package builder
-    echo "Trusting SteamOS package builder keys..."
-    sudo pacman-key --recv-keys AF1D2199EF0A3CCF 2>/dev/null || true
-    sudo pacman-key --lsign-key AF1D2199EF0A3CCF 2>/dev/null || true
-    
-    # Try again with the trusted keys
-    if sudo pacman -S --noconfirm curl unzip; then
-        echo "Dependencies installed successfully!"
+    # Check if we should skip dependency checks
+    if [ "$SKIP_DEPENDENCY_CHECK" = "true" ]; then
+        echo "Skipping dependency check (SKIP_DEPENDENCY_CHECK=true)"
+        echo "Skipping sudo check (SKIP_DEPENDENCY_CHECK=true)"
+        echo "Skipping SteamOS read-only mode changes (SKIP_DEPENDENCY_CHECK=true)"
+        log_message "INFO" "Skipping dependency checks due to SKIP_DEPENDENCY_CHECK=true"
     else
-        echo "Still failing. Trying with signature verification disabled..."
-        echo "(This is safe for SteamOS packages)"
+        # Check dependencies
+        if ! check_dependencies; then
+            echo -e "${RED}Dependency check failed${NC}"
+            log_message "ERROR" "Dependency check failed"
+            exit 1
+        fi
         
-        # Last resort: install without signature verification
-        if sudo pacman -S --noconfirm --disable-download-timeout curl unzip; then
-            echo "Dependencies installed successfully!"
-        else
-            echo "Failed to install dependencies. This might be due to:"
-            echo "- Network connectivity problems"
-            echo "- Package repository issues"
-            echo "- SteamOS being in read-only mode"
-            echo ""
-            echo "You can try manually installing with:"
-            echo "sudo pacman -S --noconfirm curl unzip"
+        # Check network connectivity
+        if ! check_network; then
+            echo -e "${RED}Network check failed${NC}"
+            log_message "ERROR" "Network check failed"
+            exit 1
+        fi
+        
+        # Check disk space
+        if ! check_disk_space; then
+            echo -e "${RED}Disk space check failed${NC}"
+            log_message "ERROR" "Disk space check failed"
+            exit 1
+        fi
+        
+        # Check if r2modmanPlus is running
+        check_r2modman_running
+        
+        # Check sudo access
+        if ! sudo -n true 2>/dev/null; then
+            echo "This script requires sudo privileges for SteamOS system modifications."
+            echo "Please enter your password when prompted."
+            if ! sudo -v; then
+                echo -e "${RED}Failed to obtain sudo privileges${NC}"
+                log_message "ERROR" "Failed to obtain sudo privileges"
+                exit 1
+            fi
+        fi
+        
+        # Disable SteamOS read-only mode
+        if ! disable_steamos_readonly; then
+            echo -e "${RED}Failed to disable SteamOS read-only mode${NC}"
+            log_message "ERROR" "Failed to disable SteamOS read-only mode"
             exit 1
         fi
     fi
-fi
-echo ""
-
-# Create the temp directory
-mkdir -p $MOD_INSTALL_PATH
-
-# Create the repo plugin folder
-mkdir -p $MOD_INSTALL_PATH_REPO
-
-# Download the mod
-echo "Downloading MoreUpgrades mod..."
-if curl -L -o $MOD_INSTALL_PATH/$MOD_NAME.zip $MOD_DOWNLOAD_URL; then
-    echo "Download completed successfully!"
-else
-    echo "Failed to download the mod. Please check your internet connection and try again."
-    exit 1
-fi
-
-# Unzip the mod and move to the install path
-echo "Extracting mod files..."
-if unzip $MOD_INSTALL_PATH/$MOD_NAME.zip -d $MOD_INSTALL_PATH; then
-    echo "Extraction completed successfully!"
-else
-    echo "Failed to extract the mod. The downloaded file may be corrupted."
-    exit 1
-fi
-
-# Remove the zip file
-rm $MOD_INSTALL_PATH/*.zip
-
-# Install the mod to REPO plugin folder
-echo "Installing mod to r2modmanPlus..."
-if cp $MOD_INSTALL_PATH/* $MOD_INSTALL_PATH_REPO; then
-    echo "Mod installed successfully!"
-else
-    echo "Failed to install the mod. Please check file permissions."
-    exit 1
-fi
-
-# Remove the install directory
-rm -r $MOD_INSTALL_PATH
-
-# Function to clean and validate mods.yml file
-clean_mods_yml() {
-    local mods_yml="$1"
     
-    echo "Checking and cleaning mods.yml file..."
-    
-    # Check if file exists
-    if [ ! -f "$mods_yml" ]; then
-        echo "Error: mods.yml file not found at: $mods_yml"
-        return 1
+    # Set up cleanup trap
+    trap 'cleanup_on_exit' EXIT
+}
+
+# Function to cleanup on exit
+cleanup_on_exit() {
+    if [ "$SKIP_DEPENDENCY_CHECK" != "true" ]; then
+        # Re-enable SteamOS read-only mode
+        enable_steamos_readonly
     fi
     
-    # Check for null bytes
-    if grep -q $'\0' "$mods_yml"; then
-        echo "Found null bytes in mods.yml, cleaning..."
-        
-        # Clean null bytes and re-serialize YAML with error recovery
-        python3 -c "
-import yaml
-import sys
-import re
+    log_message "INFO" "Mod Installer (Modular) finished"
+}
 
-try:
-    with open('$mods_yml', 'r', encoding='utf-8', errors='ignore') as f:
-        content = f.read()
-        # Remove null bytes and other problematic characters
-        content = content.replace('\x00', '')
-        content = content.replace('\u0000', '')
-        # Remove any remaining control characters except newlines and tabs
-        import re
-        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+# Function to download and install mod
+download_and_install_mod() {
+    echo -e "${BLUE}Downloading and installing mod...${NC}"
+    log_message "INFO" "Downloading MoreUpgrades mod from $MOD_URL"
     
-    # Try to parse the YAML
-    try:
-        data = yaml.safe_load(content)
-    except yaml.YAMLError as e:
-        print(f'⚠️  YAML parsing failed, attempting to fix structure: {e}')
-        
-        # Try to fix common structural issues with enhanced logic
-        def fix_yaml_structure(content):
-            lines = content.split('\n')
-            fixed_lines = []
-            i = 0
-            
-            while i < len(lines):
-                line = lines[i]
-                
-                # Skip empty lines
-                if not line.strip():
-                    fixed_lines.append(line)
-                    i += 1
-                    continue
-                    
-                # Check for malformed mod entries
-                # Pattern 1: Line starts with '- authorName:' (missing manifestVersion and name)
-                if line.strip().startswith('- authorName:'):
-                    # Find the mod name by looking at the previous non-empty line or next few lines
-                    mod_name = None
-                    
-                    # Look backwards for a potential mod name
-                    for j in range(i-1, max(0, i-5), -1):
-                        if lines[j].strip() and not lines[j].startswith('  ') and not lines[j].startswith('- '):
-                            mod_name = lines[j].strip()
-                            break
-                    
-                    # If no name found, look forward for a pattern
-                    if not mod_name:
-                        for j in range(i+1, min(len(lines), i+10)):
-                            if lines[j].strip() and not lines[j].startswith('  ') and not lines[j].startswith('- '):
-                                # Check if this looks like a mod name (contains hyphen)
-                                if '-' in lines[j].strip():
-                                    mod_name = lines[j].strip()
-                                    break
-                    
-                    if mod_name:
-                        fixed_lines.append('- manifestVersion: 1')
-                        fixed_lines.append(f'  name: {mod_name}')
-                        fixed_lines.append('  ' + line.strip()[2:])  # Add the authorName line with proper indentation
-                        print(f'Fixed malformed entry for: {mod_name}')
-                    else:
-                        # Fallback: create a generic entry
-                        fixed_lines.append('- manifestVersion: 1')
-                        fixed_lines.append('  name: Unknown-Mod')
-                        fixed_lines.append('  ' + line.strip()[2:])
-                        print('Fixed malformed entry with generic name')
-                
-                # Pattern 2: Line that should be a name field but is missing proper structure
-                elif (line.strip() and 
-                      not line.startswith('  ') and 
-                      not line.startswith('- ') and
-                      not line.startswith('#') and
-                      i + 1 < len(lines) and
-                      lines[i + 1].strip().startswith('authorName:')):
-                    
-                    mod_name = line.strip()
-                    fixed_lines.append('- manifestVersion: 1')
-                    fixed_lines.append(f'  name: {mod_name}')
-                    print(f'Fixed missing name field for: {mod_name}')
-                
-                # Pattern 3: Line that starts with '-' but is not properly formatted
-                elif (line.strip().startswith('- ') and 
-                      not line.strip().startswith('- manifestVersion:') and
-                      not line.strip().startswith('- name:') and
-                      i + 1 < len(lines) and
-                      lines[i + 1].strip().startswith('authorName:')):
-                    
-                    mod_name = line.strip()[2:]  # Remove the '- ' prefix
-                    fixed_lines.append('- manifestVersion: 1')
-                    fixed_lines.append(f'  name: {mod_name}')
-                    print(f'Fixed malformed entry for: {mod_name}')
-                
-                else:
-                    fixed_lines.append(line)
-                
-                i += 1
-            
-            return '\n'.join(fixed_lines)
-        
-        # Fix the structure
-        fixed_content = fix_yaml_structure(content)
-        
-        # Try to parse the fixed content
-        data = yaml.safe_load(fixed_content)
-        content = fixed_content  # Use the fixed content
-        print('✅ Successfully fixed YAML structure')
+    # Create temporary directory
+    local temp_dir=$(mktemp -d)
+    local download_file="$temp_dir/MoreUpgrades.zip"
     
-    # Write back clean YAML
-    with open('$mods_yml', 'w') as f:
-        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
-    
-    print('✅ Successfully cleaned mods.yml of null bytes and re-serialized')
-    
-except Exception as e:
-    print(f'❌ Error cleaning mods.yml: {e}')
-    sys.exit(1)
-" || {
-            echo "Failed to clean mods.yml"
-            return 1
-        }
-    else
-        echo "No null bytes found in mods.yml"
+    # Download mod
+    echo "Downloading mod..."
+    if ! curl -L -o "$download_file" "$MOD_URL"; then
+        echo -e "${RED}Failed to download mod${NC}"
+        log_message "ERROR" "Failed to download mod from $MOD_URL"
+        rm -rf "$temp_dir"
+        exit 1
     fi
     
-    # Validate YAML syntax
-    echo "Validating YAML syntax..."
-    if python3 -c "
-import yaml
-try:
-    with open('$mods_yml', 'r') as f:
-        yaml.safe_load(f)
-    print('✅ YAML syntax is valid')
-except yaml.YAMLError as e:
-    print(f'❌ YAML syntax error: {e}')
-    exit(1)
-except Exception as e:
-    print(f'❌ Error validating YAML: {e}')
-    exit(1)
-"; then
-        echo "mods.yml is clean and valid"
-        return 0
+    # Extract mod files
+    echo "Extracting mod files..."
+    if ! unzip -q "$download_file" -d "$temp_dir"; then
+        echo -e "${RED}Failed to extract mod files${NC}"
+        log_message "ERROR" "Failed to extract mod files"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    # Create mod directory
+    echo "Creating mod directory..."
+    if ! mkdir -p "$MOD_INSTALL_PATH_REPO"; then
+        echo -e "${RED}Failed to create mod directory${NC}"
+        log_message "ERROR" "Failed to create mod directory: $MOD_INSTALL_PATH_REPO"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    # Copy mod files
+    echo "Installing mod files..."
+    if ! cp -r "$temp_dir"/* "$MOD_INSTALL_PATH_REPO/"; then
+        echo -e "${RED}Failed to install mod files${NC}"
+        log_message "ERROR" "Failed to install mod files"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    # Clean up
+    rm -rf "$temp_dir"
+    
+    echo -e "${GREEN}Mod installed successfully!${NC}"
+    log_message "INFO" "MoreUpgrades mod installed successfully"
+}
+
+# Function to register mod with r2modmanPlus
+register_mod() {
+    if [ -f "$MODS_YML" ]; then
+        add_mod_to_registry \
+            "$MOD_NAME" \
+            "$MOD_INSTALL_PATH_REPO" \
+            "$MOD_VERSION" \
+            "$MOD_AUTHOR" \
+            "$MOD_DESCRIPTION" \
+            "$MOD_URL" \
+            "$MODS_YML"
     else
-        echo "mods.yml has syntax errors"
-        return 1
+        echo -e "${YELLOW}Warning: r2modmanPlus mods.yml not found at $MODS_YML${NC}"
+        echo "Mod installed but not registered with r2modmanPlus"
+        log_message "WARN" "r2modmanPlus mods.yml not found at $MODS_YML"
     fi
 }
 
-# Function to add mod to r2modmanPlus registry
-add_to_mod_registry() {
-    local mod_name="$1"
-    local mod_path="$2"
-    local mod_version="$3"
-    local mod_author="$4"
-    local mod_description="$5"
-    local mod_url="$6"
-    local mods_yml="$7"
+# Main execution
+main() {
+    # Parse command line arguments
+    parse_arguments "$@"
     
-    echo "Registering mod with r2modmanPlus..."
+    # Initialize script
+    init_script
     
-    # Extract version components
-    local major_version=$(echo $mod_version | cut -d. -f1)
-    local minor_version=$(echo $mod_version | cut -d. -f2)
-    local patch_version=$(echo $mod_version | cut -d. -f3)
+    # Confirm installation
+    echo -e "${BLUE}Installation Summary:${NC}"
+    echo -e "  Mod: $MOD_NAME"
+    echo -e "  Version: $MOD_VERSION"
+    echo -e "  Author: $MOD_AUTHOR"
+    echo -e "  Install Path: $MOD_INSTALL_PATH_REPO"
+    echo ""
     
-    # Get current timestamp in milliseconds
-    local timestamp=$(date +%s)000
-    
-    # Create mod entry
-    local mod_entry="
-- manifestVersion: 1
-  name: \"$mod_name\"
-  authorName: \"$mod_author\"
-  websiteUrl: \"$mod_url\"
-  displayName: \"MoreUpgrades\"
-  description: \"$mod_description\"
-  gameVersion: \"0\"
-  networkMode: both
-  packageType: other
-  installMode: unmanaged
-  installedAtTime: $timestamp
-  loaders: []
-  dependencies: []
-  incompatibilities: []
-  optionalDependencies: []
-  versionNumber:
-    major: $major_version
-    minor: $minor_version
-    patch: $patch_version
-  enabled: true
-  icon: \"$mod_path/icon.png\""
-
-    # Use jq for robust registry update
-    echo "Using jq for registry update..."
-    python3 -c "
-import yaml
-import json
-import subprocess
-import sys
-
-try:
-    # Read and clean the YAML file
-    with open('$mods_yml', 'r', encoding='utf-8', errors='ignore') as f:
-        content = f.read()
-        # Remove null bytes and control characters
-        content = content.replace('\x00', '')
-        content = content.replace('\u0000', '')
-        import re
-        content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
-    
-    # Parse YAML
-    data = yaml.safe_load(content)
-    if not isinstance(data, list):
-        print('❌ Error: mods.yml is not a list')
-        sys.exit(1)
-    
-    # Convert to JSON
-    json_data = json.dumps(data, indent=2)
-    
-    # Check if mod already exists
-    result = subprocess.run(['jq', f'.[] | select(.name == \"$mod_name\")'], input=json_data, text=True, capture_output=True)
-    mod_exists = result.returncode == 0 and result.stdout.strip()
-    
-    if mod_exists:
-        print('Mod already exists in registry, updating entry...')
-        # Remove old entry
-        jq_remove_cmd = ['jq', f'del(.[] | select(.name == \"$mod_name\"))']
-        result = subprocess.run(jq_remove_cmd, input=json_data, text=True, capture_output=True)
-        if result.returncode != 0:
-            print(f'❌ jq remove failed: {result.stderr}')
-            sys.exit(1)
-        updated_json = result.stdout
-    else:
-        print('Adding new mod to r2modmanPlus registry...')
-        updated_json = json_data
-    
-    # Create new mod entry JSON
-    new_mod_json = {
-        'manifestVersion': 1,
-        'name': '$mod_name',
-        'authorName': '$mod_author',
-        'websiteUrl': '$mod_url',
-        'displayName': 'MoreUpgrades',
-        'description': '$mod_description',
-        'gameVersion': '0',
-        'networkMode': 'both',
-        'packageType': 'other',
-        'installMode': 'unmanaged',
-        'installedAtTime': int(subprocess.run(['date', '+%s'], capture_output=True, text=True).stdout.strip()) * 1000,
-        'loaders': [],
-        'dependencies': [],
-        'incompatibilities': [],
-        'optionalDependencies': [],
-        'versionNumber': {
-            'major': int('$major_version'),
-            'minor': int('$minor_version'),
-            'patch': int('$patch_version')
-        },
-        'enabled': True,
-        'icon': '$mod_path/icon.png'
-    }
-    
-    # Add the new mod entry using jq
-    new_mod_json_str = json.dumps(new_mod_json)
-    jq_add_cmd = ['jq', f'. + [{new_mod_json_str}]']
-    result = subprocess.run(jq_add_cmd, input=updated_json, text=True, capture_output=True)
-    
-    if result.returncode != 0:
-        print(f'❌ jq add failed: {result.stderr}')
-        sys.exit(1)
-    
-    final_json = result.stdout
-    
-    # Convert back to YAML
-    final_data = json.loads(final_json)
-    
-    # Write back to file
-    with open('$mods_yml', 'w') as f:
-        yaml.dump(final_data, f, default_flow_style=False, allow_unicode=True)
-    
-    print('✅ Successfully updated mod registry using jq')
-    
-except Exception as e:
-    print(f'❌ Error updating registry: {e}')
-    sys.exit(1)
-"
-    
-    # Clean up the mods.yml file after writing to prevent corruption
-    echo "Cleaning up mods.yml after registry update..."
-    if clean_mods_yml "$mods_yml"; then
-        echo "mods.yml cleaned and validated after update"
-    else
-        echo "Warning: Could not clean mods.yml after update"
+    if ! confirm_action "Proceed with installation?"; then
+        echo "Installation cancelled."
+        log_message "INFO" "Installation cancelled by user"
+        exit 0
     fi
+    
+    # Download and install mod
+    download_and_install_mod
+    
+    # Register the mod with r2modmanPlus
+    register_mod
+    
+    echo ""
+    echo -e "${GREEN}==========================================${NC}"
+    echo -e "${GREEN}  Installation Complete!${NC}"
+    echo -e "${GREEN}==========================================${NC}"
+    echo ""
+    echo -e "${GREEN}The MoreUpgrades mod has been successfully installed!${NC}"
+    echo ""
+    echo "You can now start r2modmanPlus to see the mod in your profile."
+    echo ""
+    
+    log_message "INFO" "MoreUpgrades mod installation completed successfully"
 }
 
-# Register the mod with r2modmanPlus
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
-
-if [ -f "$MODS_YML" ]; then
-    add_to_mod_registry \
-        "BULLETBOT-MoreUpgrades" \
-        "$MOD_INSTALL_PATH_REPO" \
-        "1.4.8" \
-        "BULLETBOT" \
-        "Adds more upgrade items to the game, has an library and is highly configurable." \
-        "https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/" \
-        "$MODS_YML"
-else
-    echo "Warning: r2modmanPlus mods.yml not found at $MODS_YML"
-    echo "Mod installed but not registered with r2modmanPlus"
-fi
-
-echo ""
-echo "=========================================="
-echo "  Installation Complete!"
-echo "=========================================="
-echo "MoreUpgrades has been successfully installed to:"
-echo "$MOD_INSTALL_PATH_REPO"
-echo ""
-
-if [ -f "$MODS_YML" ]; then
-    echo "The mod has been registered with r2modmanPlus and should appear in the mod manager."
-    echo "You can now launch your game with r2modmanPlus to use the mod."
-else
-    echo "You can now launch your game with r2modmanPlus to use the mod."
-    echo "Note: The mod was not registered with r2modmanPlus (mods.yml not found)."
-fi
-echo ""
-
-exit 0
+# Run main function
+main "$@"
