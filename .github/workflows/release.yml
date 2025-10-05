@@ -13,37 +13,82 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Create release
-      env:
-        GH_TOKEN: ${{ github.token }}
+    - name: Create release packages
       run: |
-        echo "Creating release for tag: $GITHUB_REF"
+        echo "Creating release packages for tag: $GITHUB_REF"
         
         # Extract version from tag
         VERSION=${GITHUB_REF#refs/tags/}
         echo "Version: $VERSION"
         
-        # Create release notes
+        # Create both packages
+        ./create_package.sh
+        ./create_user_package.sh
+        
+        # Move packages to /tmp for release
+        cp /tmp/REPO-Magic-v$VERSION.zip /tmp/REPO-Magic-v$VERSION.zip
+        cp /tmp/REPO-Magic-User-v$VERSION.zip /tmp/REPO-Magic-User-v$VERSION.zip
+        
+        echo "Packages created successfully"
+        
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        # Create release notes (updated content)
         cat > release_notes.md << EOL
-        # Release $VERSION
+        # Release $VERSION - Mod Management Tools
         
-        ## Changes
-        - Automated release from CI/CD pipeline
-        - All tests passed
-        - Ready for production deployment
+        ## 🎉 What's New
+        - **SteamOS Keyring Support**: Automatic keyring initialization and read-only mode handling
+        - **Terminal Compatibility**: Improved compatibility with WSL Ubuntu and other terminal environments
+        - **Profile Selection Support**: Use \`--profile Friends\`, \`--profile Default\`, or any custom profile
+        - **mods.yml-based Mod Discovery**: More reliable than filesystem scanning
+        - **Path Portability**: Use \`R2MODMAN_BASE\` environment variable for custom paths
+        - **Input Validation**: Secure profile name sanitization prevents path traversal attacks
+        - **Modular Architecture**: Shared libraries for maintainable code
         
-        ## Installation
-        \`\`\`bash
-        # Download and run installer
-        curl -fsSL https://raw.githubusercontent.com/grimm00/REPO-Magic/main/modinstaller.sh | bash
-        \`\`\`
+        ## 📦 Downloads
+        
+        ### For End Users (Recommended)
+        **REPO-Magic-User-v$VERSION.zip** - Streamlined package with just the essentials:
+        - Core mod management scripts
+        - Required library files
+        - Standalone single-file versions
+        - Essential documentation only
+        - Setup and dependency checking tools
+        
+        ### For Developers
+        **REPO-Magic-v$VERSION.zip** - Full development package with:
+        - All source code and libraries
+        - Complete documentation
+        - Development tools and scripts
+        - Admin and planning files
+        
+        ## 🚀 Quick Start (User Package)
+        1. Download \`REPO-Magic-User-v$VERSION.zip\`
+        2. Extract anywhere
+        3. Run \`./install.sh\` to set up
+        4. Start using: \`./modrollback.sh --profile Default\`
+        
+        ## 📋 Requirements
+        - SteamOS/Linux with bash
+        - r2modmanPlus installed
+        - Required tools: jq, curl, openssl, git, python3
+        
+        ## 🎮 Happy Modding!
         EOL
         
-        # Create GitHub release
+        # Create GitHub release with both packages
         gh release create "$VERSION" \
-          --title "Release $VERSION" \
+          --title "Release $VERSION - Mod Management Tools" \
           --notes-file release_notes.md \
-          --latest
+          --latest \
+          /tmp/REPO-Magic-v$VERSION.zip \
+          /tmp/REPO-Magic-User-v$VERSION.zip
           
     - name: Update documentation
       run: |
