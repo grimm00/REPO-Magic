@@ -72,6 +72,24 @@ parse_arguments() {
                 show_usage
                 exit 0
                 ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}"
+                show_usage
+                exit 1
+                ;;
+            *)
+                if [ -z "$SEARCH_TERM" ]; then
+                    SEARCH_TERM=$(validate_input "$1" "search_term")
+                else
+                    echo -e "${RED}Multiple mod names provided. Please specify only one.${NC}"
+                    exit 1
+                fi
+                shift
+                ;;
+        esac
+    done
+}
+
 resolve_profile() {
     local profiles_base="/home/deck/.config/r2modmanPlus-local/REPO/profiles"
     if [ -z "$PROFILE_NAME" ]; then
@@ -93,23 +111,6 @@ resolve_profile() {
     echo -e "${BLUE}Using profile:${NC} $PROFILE_NAME"
     echo -e "${BLUE}Plugins path:${NC} $MOD_PLUGIN_PATH"
     echo -e "${BLUE}mods.yml path:${NC} $MODS_YML"
-}
-            -*)
-                echo -e "${RED}Unknown option: $1${NC}"
-                show_usage
-                exit 1
-                ;;
-            *)
-                if [ -z "$SEARCH_TERM" ]; then
-                    SEARCH_TERM=$(validate_input "$1" "search_term")
-                else
-                    echo -e "${RED}Multiple mod names provided. Please specify only one.${NC}"
-                    exit 1
-                fi
-                shift
-                ;;
-        esac
-    done
 }
 
 # Function to initialize the script
