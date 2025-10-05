@@ -4,7 +4,7 @@
 # This script can be run without sudo privileges
 
 PROFILE_NAME=${1:-Default}
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/${PROFILE_NAME}/mods.yml"
+MODS_YML="${R2MODMAN_BASE:-$HOME/.config/r2modmanPlus-local}/REPO/profiles/${PROFILE_NAME}/mods.yml"
 
 echo "=========================================="
 echo "  mods.yml Cleanup Tool"

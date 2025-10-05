@@ -44,11 +44,15 @@ cp clean_mods_yml.sh "$PACKAGE_DIR/"
 
 # Copy library files
 mkdir -p "$PACKAGE_DIR/lib"
-cp lib/*.sh "$PACKAGE_DIR/lib/"
+shopt -s nullglob
+cp lib/*.sh "$PACKAGE_DIR/lib/" 2>/dev/null || true
+shopt -u nullglob
 
 # Copy standalone scripts
 mkdir -p "$PACKAGE_DIR/scripts/standalone"
-cp scripts/standalone/*.sh "$PACKAGE_DIR/scripts/standalone/"
+shopt -s nullglob
+cp scripts/standalone/*.sh "$PACKAGE_DIR/scripts/standalone/" 2>/dev/null || true
+shopt -u nullglob
 
 # Copy documentation
 mkdir -p "$PACKAGE_DIR/docs"
