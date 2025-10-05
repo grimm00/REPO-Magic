@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Sourcery Review Parser for REPO-Magic
+# Sourcery Review Parser - Simple and Reliable Version
 # Extracts and formats Sourcery reviews for manual priority matrix assessment
 
 # Get the script directory for relative imports
@@ -20,20 +20,17 @@ if ! gh_init_github_utils; then
     exit 1
 fi
 
-gh_print_header "📋 Sourcery Review Parser"
+gh_print_header "📋 Sourcery Review Parser (Simple)"
 echo ""
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-# Output formats
-OUTPUT_FORMAT="markdown"  # markdown, json, text
 OUTPUT_FILE=""
-VERBOSE=false
 
 # ============================================================================
-# SOURCERY REVIEW EXTRACTION
+# SIMPLE PARSING FUNCTIONS
 # ============================================================================
 
 extract_sourcery_review() {
@@ -57,70 +54,13 @@ extract_sourcery_review() {
         return 1
     fi
     
-    # Parse and format the content
-    parse_and_format_review "$markdown_content" "$pr_number"
+    # Create simple, clean output
+    create_simple_output "$markdown_content" "$pr_number"
 }
 
-parse_and_format_review() {
+create_simple_output() {
     local content="$1"
     local pr_number="$2"
-    
-    # Extract individual comments
-    local comments=()
-    local current_comment=""
-    local in_comment=false
-    local comment_num=""
-    
-    while IFS= read -r line; do
-        # Check for comment header
-        if [[ "$line" =~ ^###\ Comment\ ([0-9]+) ]]; then
-            # Save previous comment if exists
-            if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
-                comments+=("$comment_num|$current_comment")
-            fi
-            
-            # Start new comment
-            comment_num="${BASH_REMATCH[1]}"
-            current_comment="$line"
-            in_comment=true
-        elif [ "$in_comment" = true ]; then
-            # Continue building current comment
-            current_comment="$current_comment"$'\n'"$line"
-        fi
-    done <<< "$content"
-    
-    # Add the last comment
-    if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
-        comments+=("$comment_num|$current_comment")
-    fi
-    
-    # Format and output the comments
-    format_comments_output "${comments[@]}" "$pr_number"
-}
-
-format_comments_output() {
-    local comments=("${@:1:$#-1}")
-    local pr_number="${@: -1}"
-    
-    case "$OUTPUT_FORMAT" in
-        "markdown")
-            format_markdown_output "${comments[@]}" "$pr_number"
-            ;;
-        "json")
-            format_json_output "${comments[@]}" "$pr_number"
-            ;;
-        "text")
-            format_text_output "${comments[@]}" "$pr_number"
-            ;;
-        *)
-            format_markdown_output "${comments[@]}" "$pr_number"
-            ;;
-    esac
-}
-
-format_markdown_output() {
-    local comments=("${@:1:$#-1}")
-    local pr_number="${@: -1}"
     
     local output=""
     
@@ -131,45 +71,39 @@ format_markdown_output() {
     output+="**Generated**: $(date)\n\n"
     output+="---\n\n"
     
-    # Summary
+    # Extract comment count
+    local comment_count=$(echo "$content" | grep -c "^### Comment [0-9]")
     output+="## Summary\n\n"
-    output+="Total Comments: ${#comments[@]}\n\n"
+    output+="Total Comments: $comment_count\n\n"
     
-    # Comments
+    # Comments section
     output+="## Individual Comments\n\n"
     
-    for comment_data in "${comments[@]}"; do
-        local comment_num=$(echo "$comment_data" | cut -d'|' -f1)
-        local comment_content=$(echo "$comment_data" | cut -d'|' -f2-)
-        
-        output+="### Comment #$comment_num\n\n"
-        
-        # Extract key information
-        local location=$(echo "$comment_content" | grep -o '<location>.*</location>' | sed 's/<[^>]*>//g' | head -1)
-        local issue_type=$(echo "$comment_content" | grep -o '\*\*[^*]*\*\*' | head -1 | sed 's/\*\*//g')
-        local issue_description=$(echo "$comment_content" | grep -A 10 '<issue_to_address>' | grep -v '<issue_to_address>' | head -1)
-        
-        # Format the comment
-        if [ -n "$location" ]; then
-            output+="**Location**: \`$location\`\n\n"
+    # Split content by comment headers and process each
+    local current_comment=""
+    local comment_num=""
+    local in_comment=false
+    
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^###\ Comment\ ([0-9]+) ]]; then
+            # Process previous comment if exists
+            if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
+                output+=$(format_single_comment "$comment_num" "$current_comment")
+            fi
+            
+            # Start new comment
+            comment_num="${BASH_REMATCH[1]}"
+            current_comment="$line"
+            in_comment=true
+        elif [ "$in_comment" = true ]; then
+            current_comment="$current_comment"$'\n'"$line"
         fi
-        
-        if [ -n "$issue_type" ]; then
-            output+="**Type**: $issue_type\n\n"
-        fi
-        
-        if [ -n "$issue_description" ]; then
-            output+="**Description**: $issue_description\n\n"
-        fi
-        
-        # Add the full comment content in a collapsible section
-        output+="<details>\n<summary>Full Comment Content</summary>\n\n"
-        output+="\`\`\`\n"
-        output+="$comment_content"
-        output+="\n\`\`\`\n\n"
-        output+="</details>\n\n"
-        output+="---\n\n"
-    done
+    done <<< "$content"
+    
+    # Process the last comment
+    if [ -n "$current_comment" ] && [ -n "$comment_num" ]; then
+        output+=$(format_single_comment "$comment_num" "$current_comment")
+    fi
     
     # Priority Matrix Template
     output+="## Priority Matrix Assessment\n\n"
@@ -177,9 +111,9 @@ format_markdown_output() {
     output+="| Comment | Priority | Impact | Effort | Notes |\n"
     output+="|---------|----------|--------|--------|-------|\n"
     
-    for comment_data in "${comments[@]}"; do
-        local comment_num=$(echo "$comment_data" | cut -d'|' -f1)
-        output+="| #$comment_num | | | | |\n"
+    # Add empty rows for each comment
+    for i in $(seq 1 $comment_count); do
+        output+="| #$i | | | | |\n"
     done
     
     output+="\n### Priority Levels\n"
@@ -209,109 +143,41 @@ format_markdown_output() {
     fi
 }
 
-format_json_output() {
-    local comments=("${@:1:$#-1}")
-    local pr_number="${@: -1}"
+format_single_comment() {
+    local comment_num="$1"
+    local content="$2"
     
     local output=""
     
-    # Start JSON
-    output+="{\n"
-    output+="  \"pr_number\": $pr_number,\n"
-    output+="  \"repository\": \"$PROJECT_REPO\",\n"
-    output+="  \"generated\": \"$(date -Iseconds)\",\n"
-    output+="  \"total_comments\": ${#comments[@]},\n"
-    output+="  \"comments\": [\n"
+    output+="### Comment #$comment_num\n\n"
     
-    # Add each comment
-    for i in "${!comments[@]}"; do
-        local comment_data="${comments[$i]}"
-        local comment_num=$(echo "$comment_data" | cut -d'|' -f1)
-        local comment_content=$(echo "$comment_data" | cut -d'|' -f2-)
-        
-        # Extract key information
-        local location=$(echo "$comment_content" | grep -o '<location>.*</location>' | sed 's/<[^>]*>//g' | head -1)
-        local issue_type=$(echo "$comment_content" | grep -o '\*\*[^*]*\*\*' | head -1 | sed 's/\*\*//g')
-        local issue_description=$(echo "$comment_content" | grep -A 10 '<issue_to_address>' | grep -v '<issue_to_address>' | head -1)
-        
-        output+="    {\n"
-        output+="      \"comment_number\": $comment_num,\n"
-        output+="      \"location\": \"$location\",\n"
-        output+="      \"issue_type\": \"$issue_type\",\n"
-        output+="      \"description\": \"$issue_description\",\n"
-        output+="      \"full_content\": $(echo "$comment_content" | jq -Rs .)\n"
-        output+="    }"
-        
-        # Add comma if not last item
-        if [ $i -lt $((${#comments[@]} - 1)) ]; then
-            output+=","
-        fi
-        output+="\n"
-    done
-    
-    output+="  ]\n"
-    output+="}\n"
-    
-    # Output the result
-    if [ -n "$OUTPUT_FILE" ]; then
-        echo -e "$output" > "$OUTPUT_FILE"
-        gh_print_status "SUCCESS" "Review analysis saved to $OUTPUT_FILE"
-    else
-        echo -e "$output"
+    # Extract location (simple approach)
+    local location=$(echo "$content" | grep -o '<location>.*</location>' | sed 's/<[^>]*>//g' | sed 's/`//g' | sed 's/^ *//;s/ *$//' | head -1)
+    if [ -n "$location" ]; then
+        output+="**Location**: \`$location\`\n\n"
     fi
-}
-
-format_text_output() {
-    local comments=("${@:1:$#-1}")
-    local pr_number="${@: -1}"
     
-    local output=""
-    
-    # Header
-    output+="SOURCERY REVIEW ANALYSIS\n"
-    output+="PR: #$pr_number\n"
-    output+="Repository: $PROJECT_REPO\n"
-    output+="Generated: $(date)\n"
-    output+="Total Comments: ${#comments[@]}\n\n"
-    output+="========================================\n\n"
-    
-    # Comments
-    for comment_data in "${comments[@]}"; do
-        local comment_num=$(echo "$comment_data" | cut -d'|' -f1)
-        local comment_content=$(echo "$comment_data" | cut -d'|' -f2-)
-        
-        output+="COMMENT #$comment_num\n"
-        output+="----------------------------------------\n"
-        
-        # Extract key information
-        local location=$(echo "$comment_content" | grep -o '<location>.*</location>' | sed 's/<[^>]*>//g' | head -1)
-        local issue_type=$(echo "$comment_content" | grep -o '\*\*[^*]*\*\*' | head -1 | sed 's/\*\*//g')
-        local issue_description=$(echo "$comment_content" | grep -A 10 '<issue_to_address>' | grep -v '<issue_to_address>' | head -1)
-        
-        if [ -n "$location" ]; then
-            output+="Location: $location\n"
-        fi
-        
-        if [ -n "$issue_type" ]; then
-            output+="Type: $issue_type\n"
-        fi
-        
-        if [ -n "$issue_description" ]; then
-            output+="Description: $issue_description\n"
-        fi
-        
-        output+="\nFull Content:\n"
-        output+="$comment_content\n"
-        output+="\n========================================\n\n"
-    done
-    
-    # Output the result
-    if [ -n "$OUTPUT_FILE" ]; then
-        echo -e "$output" > "$OUTPUT_FILE"
-        gh_print_status "SUCCESS" "Review analysis saved to $OUTPUT_FILE"
-    else
-        echo -e "$output"
+    # Extract issue type (simple approach)
+    local issue_type=$(echo "$content" | grep -o '\*\*[^*]*\*\*' | head -1 | sed 's/\*\*//g' | sed 's/:$//')
+    if [ -n "$issue_type" ]; then
+        output+="**Type**: $issue_type\n\n"
     fi
+    
+    # Extract description (simple approach - first line after issue_to_address)
+    local description=$(echo "$content" | sed -n '/<issue_to_address>/,/```/p' | grep -v '<issue_to_address>' | grep -v '^$' | grep -v '^\*\*' | head -1 | sed 's/^ *//;s/ *$//')
+    if [ -n "$description" ]; then
+        output+="**Description**: $description\n\n"
+    fi
+    
+    # Add collapsible full content
+    output+="<details>\n<summary>Full Comment Content</summary>\n\n"
+    output+="\`\`\`\n"
+    output+="$content"
+    output+="\n\`\`\`\n\n"
+    output+="</details>\n\n"
+    output+="---\n\n"
+    
+    echo "$output"
 }
 
 # ============================================================================
@@ -323,17 +189,9 @@ PR_NUMBER=""
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --format)
-            OUTPUT_FORMAT="$2"
-            shift 2
-            ;;
         --output|-o)
             OUTPUT_FILE="$2"
             shift 2
-            ;;
-        --verbose|-v)
-            VERBOSE=true
-            shift
             ;;
         --help|-h)
             echo "Usage: $0 [PR_NUMBER] [OPTIONS]"
@@ -342,15 +200,12 @@ while [[ $# -gt 0 ]]; do
             echo "  PR_NUMBER    - Analyze specific PR (default: current user's open PR)"
             echo ""
             echo "Options:"
-            echo "  --format FORMAT    - Output format: markdown, json, text (default: markdown)"
             echo "  --output FILE      - Save output to file"
-            echo "  --verbose          - Enable verbose output"
             echo "  --help             - Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0                    # Parse current user's open PR"
             echo "  $0 123               # Parse PR #123"
-            echo "  $0 123 --format json # Output as JSON"
             echo "  $0 123 --output review.md # Save to file"
             exit 0
             ;;
