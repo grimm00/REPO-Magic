@@ -12,8 +12,8 @@ source "$SCRIPT_DIR/lib/logging_utils.sh"
 source "$SCRIPT_DIR/lib/steamos_utils.sh"
 source "$SCRIPT_DIR/lib/yaml_utils.sh"
 source "$SCRIPT_DIR/lib/registry_utils.sh"
-source "$SCRIPT_DIR/lib/mod_utils.sh"
 source "$SCRIPT_DIR/lib/profile_utils.sh"
+source "$SCRIPT_DIR/lib/mod_utils.sh"
 
 # Define colors for output
 BLUE='\033[0;34m'
@@ -25,8 +25,7 @@ NC='\033[0m' # No Color
 # Configuration
 PROFILE_NAME=""
 PROFILE_PATH=""
-MOD_PLUGIN_PATH=""
-MODS_YML=""
+# MOD_PLUGIN_PATH and MODS_YML are set by resolve_profile() in profile_utils.sh
 
 # Global variables
 mod_info=""
