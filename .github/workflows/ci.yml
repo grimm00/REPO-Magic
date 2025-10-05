@@ -17,8 +17,12 @@ jobs:
       
     - name: Install dependencies
       run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq jq curl openssl git python3
+        # Try installing without update first (faster)
+        sudo apt-get install -y -qq --no-install-recommends jq curl openssl git python3 || {
+          echo "First attempt failed, updating package list..."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends jq curl openssl git python3
+        }
         echo "Dependencies installed successfully"
       
     - name: Run shell script syntax tests
@@ -67,11 +71,12 @@ jobs:
         docker run --rm -v $PWD:/workspace -w /workspace archlinux:latest bash -c "
           echo 'Testing on Arch Linux (SteamOS-like environment)'
           
-          # Update package database
-          pacman -Sy --noconfirm
-          
-          # Install dependencies (Arch package names)
-          pacman -S --noconfirm jq curl openssl git python zip
+          # Try installing without update first (faster)
+          pacman -S --noconfirm jq curl openssl git python zip || {
+            echo 'First attempt failed, updating package database...'
+            pacman -Sy --noconfirm
+            pacman -S --noconfirm jq curl openssl git python zip
+          }
           
           # Test shell script syntax
           echo 'Testing shell script syntax...'

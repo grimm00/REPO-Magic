@@ -22,11 +22,157 @@ if [ ! -f "modrollback.sh" ] || [ ! -f "modinstaller.sh" ]; then
     exit 1
 fi
 
-# Check dependencies
-echo -e "${BLUE}Step 1: Checking dependencies...${NC}"
-if ! ./check_dependencies.sh; then
+# Check and install dependencies
+echo -e "${BLUE}Step 1: Checking and installing dependencies...${NC}"
+
+# Function to re-enable SteamOS read-only mode
+reenable_readonly() {
+    if [ -f "/etc/steamos-release" ] || [ -d "/etc/steamos" ]; then
+        if command -v steamos-readonly >/dev/null 2>&1; then
+            echo -e "${BLUE}Re-enabling SteamOS read-only mode...${NC}"
+            sudo steamos-readonly enable
+            echo "✅ Read-only mode re-enabled"
+        fi
+    fi
+}
+
+# Function to detect package manager and install dependencies
+install_dependencies() {
+    local missing_deps=()
+    
+    # Check which dependencies are missing
+    for dep in "jq" "curl" "openssl" "git" "python3"; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    
+    if [ ${#missing_deps[@]} -eq 0 ]; then
+        echo "✅ All required dependencies are already installed"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}Missing dependencies: ${missing_deps[*]}${NC}"
     echo ""
-    echo -e "${RED}❌ Please install the missing dependencies and run this script again.${NC}"
+    
+    # Detect package manager and install
+    if command -v pacman >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Arch Linux/SteamOS (pacman)${NC}"
+        
+        # Check for SteamOS and handle keyring issues
+        if [ -f "/etc/steamos-release" ] || [ -d "/etc/steamos" ]; then
+            echo -e "${YELLOW}SteamOS detected - checking system status...${NC}"
+            
+            # Check if system is in read-only mode
+            if command -v steamos-readonly >/dev/null 2>&1; then
+                if steamos-readonly status 2>/dev/null | grep -q "enabled"; then
+                    echo -e "${YELLOW}⚠️  SteamOS is in read-only mode. Temporarily disabling...${NC}"
+                    sudo steamos-readonly disable
+                    echo "✅ Read-only mode disabled"
+                fi
+            fi
+            
+            # Initialize keyring if needed
+            if ! sudo pacman-key --list-sigs >/dev/null 2>&1; then
+                echo "Initializing pacman keyring..."
+                sudo pacman-key --init
+                sudo pacman-key --populate archlinux
+                sudo pacman-key --populate steamos
+                
+                # Trust SteamOS package builder key
+                echo "Adding SteamOS package builder key..."
+                sudo pacman-key --recv-keys AF1D2199EF0A3CCF 2>/dev/null || true
+                sudo pacman-key --lsign-key AF1D2199EF0A3CCF 2>/dev/null || true
+            fi
+        fi
+        
+        echo "Installing missing dependencies..."
+        
+        # Map package names for Arch
+        local arch_packages=()
+        for dep in "${missing_deps[@]}"; do
+            case "$dep" in
+                "python3") arch_packages+=("python") ;;
+                *) arch_packages+=("$dep") ;;
+            esac
+        done
+        
+        # Try installation with keyring handling
+        if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            reenable_readonly
+            return 0
+        else
+            echo -e "${YELLOW}⚠️  First attempt failed, trying with keyring refresh...${NC}"
+            
+            # Refresh keyring and try again
+            sudo pacman-key --refresh-keys 2>/dev/null || true
+            sudo pacman -Sy 2>/dev/null || true
+            
+            if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
+                echo "✅ Dependencies installed successfully (after keyring refresh)"
+                reenable_readonly
+                return 0
+            else
+                echo -e "${RED}❌ Failed to install dependencies with pacman${NC}"
+                echo -e "${YELLOW}This might be a keyring issue. Try running:${NC}"
+                echo "  sudo pacman-key --init"
+                echo "  sudo pacman-key --populate archlinux"
+                echo "  sudo pacman-key --populate steamos"
+                return 1
+            fi
+        fi
+        
+    elif command -v apt >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Ubuntu/Debian (apt)${NC}"
+        echo "Installing missing dependencies..."
+        
+        if sudo apt update && sudo apt install -y "${missing_deps[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to install dependencies with apt${NC}"
+            return 1
+        fi
+        
+    elif command -v dnf >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Fedora/RHEL (dnf)${NC}"
+        echo "Installing missing dependencies..."
+        
+        if sudo dnf install -y "${missing_deps[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to install dependencies with dnf${NC}"
+            return 1
+        fi
+        
+    else
+        echo -e "${RED}❌ Unsupported package manager${NC}"
+        echo "Please install the missing dependencies manually:"
+        for dep in "${missing_deps[@]}"; do
+            echo "  • $dep"
+        done
+        return 1
+    fi
+}
+
+# Try to install dependencies automatically
+if ! install_dependencies; then
+    echo ""
+    echo -e "${YELLOW}Automatic installation failed. Running dependency check...${NC}"
+    if ! ./check_dependencies.sh; then
+        echo ""
+        echo -e "${RED}❌ Please install the missing dependencies manually and run this script again.${NC}"
+        exit 1
+    fi
+fi
+
+# Final dependency verification
+echo ""
+echo -e "${BLUE}Verifying all dependencies are installed...${NC}"
+if ! ./check_dependencies.sh; then
+    echo -e "${RED}❌ Some dependencies are still missing after installation attempt${NC}"
     exit 1
 fi
 
