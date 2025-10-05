@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/lib/logging_utils.sh"
 source "$SCRIPT_DIR/lib/steamos_utils.sh"
 source "$SCRIPT_DIR/lib/yaml_utils.sh"
 source "$SCRIPT_DIR/lib/registry_utils.sh"
+source "$SCRIPT_DIR/lib/profile_utils.sh"
 
 # Define colors for output
 BLUE='\033[0;34m'
@@ -138,32 +139,7 @@ set_default_mod() {
     # Install path resolved after profile selection
 }
 
-# Resolve r2modman profile and derived paths
-resolve_profile() {
-    local profiles_base="/home/deck/.config/r2modmanPlus-local/REPO/profiles"
-    if [ -z "$PROFILE_NAME" ]; then
-        PROFILE_NAME="Default"
-    fi
-    PROFILE_PATH="$profiles_base/$PROFILE_NAME"
-    if [ ! -d "$PROFILE_PATH" ]; then
-        echo -e "${YELLOW}Profile '$PROFILE_NAME' not found under $profiles_base${NC}"
-        if [ "$PROFILE_NAME" != "Default" ] && [ -d "$profiles_base/Default" ]; then
-            echo -e "${YELLOW}Falling back to 'Default' profile${NC}"
-            PROFILE_NAME="Default"
-            PROFILE_PATH="$profiles_base/Default"
-        else
-            echo -e "${YELLOW}Proceeding with profile path even if not present (it may be created on first run)${NC}"
-        fi
-    fi
-    export MOD_PLUGIN_PATH="$PROFILE_PATH/BepInEx/plugins"
-    MODS_YML="$PROFILE_PATH/mods.yml"
-    if [ -n "$MOD_NAME" ]; then
-        MOD_INSTALL_PATH_REPO="$MOD_PLUGIN_PATH/$MOD_NAME"
-    fi
-    echo -e "${BLUE}Using profile:${NC} $PROFILE_NAME"
-    echo -e "${BLUE}Plugins path:${NC} $MOD_PLUGIN_PATH"
-    echo -e "${BLUE}mods.yml path:${NC} $MODS_YML"
-}
+# Note: resolve_profile() function is now provided by lib/profile_utils.sh
 
 # Function to initialize the script
 init_script() {
@@ -191,7 +167,12 @@ init_script() {
     echo ""
     
     # Resolve profile paths (after MOD_NAME is known)
-    resolve_profile
+    resolve_profile "$PROFILE_NAME"
+    
+    # Set mod install path after profile resolution
+    if [ -n "$MOD_NAME" ]; then
+        MOD_INSTALL_PATH_REPO="$MOD_PLUGIN_PATH/$MOD_NAME"
+    fi
 
     # Initialize logging
     init_logging "modinstaller-modular" "$VERBOSE"
