@@ -21,7 +21,8 @@ else
 fi
 
 # Package configuration
-PACKAGE_NAME="REPO-Magic-User-v1.0"
+VERSION="${VERSION:-1.0}"
+PACKAGE_NAME="REPO-Magic-User-v${VERSION}"
 PACKAGE_DIR="/tmp/$PACKAGE_NAME"
 
 echo "=========================================="
