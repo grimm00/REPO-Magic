@@ -21,14 +21,18 @@ list_installed_mods() {
         return 1
     fi
     
-    echo "Scanning installed mods..."
     log_message "INFO" "Scanning installed mods in $MOD_PLUGIN_PATH"
     
-    # Find all mod directories
-    find "$MOD_PLUGIN_PATH" -maxdepth 1 -type d -name "*-*" | while read -r mod_dir; do
+    # Find all candidate mod directories (with a manifest.json)
+    find "$MOD_PLUGIN_PATH" -mindepth 1 -maxdepth 1 -type d | while read -r mod_dir; do
         if [ -f "$mod_dir/manifest.json" ]; then
             local mod_name=$(basename "$mod_dir")
-            local author=$(echo "$mod_name" | cut -d'-' -f1)
+            local author
+            if echo "$mod_name" | grep -q '-'; then
+                author=$(echo "$mod_name" | cut -d'-' -f1)
+            else
+                author="Unknown"
+            fi
             local version=$(grep '"version_number"' "$mod_dir/manifest.json" | sed 's/.*"version_number": *"\([^"]*\)".*/\1/')
             
             if [ -z "$version" ]; then
@@ -60,11 +64,16 @@ search_mods() {
     
     log_message "INFO" "Searching for mods matching: '$search_term'"
     
-    # Find all mod directories and filter by search term
-    find "$MOD_PLUGIN_PATH" -maxdepth 1 -type d -name "*-*" | while read -r mod_dir; do
+    # Find all candidate mod directories and filter by search term
+    find "$MOD_PLUGIN_PATH" -mindepth 1 -maxdepth 1 -type d | while read -r mod_dir; do
         if [ -f "$mod_dir/manifest.json" ]; then
             local mod_name=$(basename "$mod_dir")
-            local author=$(echo "$mod_name" | cut -d'-' -f1)
+            local author
+            if echo "$mod_name" | grep -q '-'; then
+                author=$(echo "$mod_name" | cut -d'-' -f1)
+            else
+                author="Unknown"
+            fi
             local version=$(grep '"version_number"' "$mod_dir/manifest.json" | sed 's/.*"version_number": *"\([^"]*\)".*/\1/')
             
             if [ -z "$version" ]; then

@@ -3,7 +3,8 @@
 # Standalone script to clean and validate mods.yml file
 # This script can be run without sudo privileges
 
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+PROFILE_NAME=${1:-Default}
+MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/${PROFILE_NAME}/mods.yml"
 
 echo "=========================================="
 echo "  mods.yml Cleanup Tool"
@@ -16,6 +17,7 @@ if [ ! -f "$MODS_YML" ]; then
     exit 1
 fi
 
+echo "Profile: $PROFILE_NAME"
 echo "File found: $MODS_YML"
 echo "File size: $(ls -lh "$MODS_YML" | awk '{print $5}')"
 echo ""

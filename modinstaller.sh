@@ -27,7 +27,9 @@ MOD_AUTHOR=""
 MOD_DESCRIPTION=""
 MOD_URL=""
 MOD_INSTALL_PATH_REPO=""
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+PROFILE_NAME=""
+PROFILE_PATH=""
+MODS_YML=""
 
 # Default MoreUpgrades mod (for backward compatibility)
 DEFAULT_MOD_NAME="BULLETBOT-MoreUpgrades"
@@ -42,6 +44,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -v, --verbose    Enable verbose logging"
+    echo "  -p, --profile    r2modman profile name (default: Default)"
     echo "  -h, --help       Show this help message"
     echo ""
     echo "Arguments:"
@@ -58,12 +61,17 @@ show_usage() {
 parse_arguments() {
     VERBOSE=false
     MOD_URL=""
+    PROFILE_NAME=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
             -v|--verbose)
                 VERBOSE=true
                 shift
+                ;;
+            -p|--profile)
+                PROFILE_NAME="$2"
+                shift 2
                 ;;
             -h|--help)
                 show_usage
@@ -99,7 +107,7 @@ parse_thunderstore_url() {
         MOD_VERSION="${BASH_REMATCH[3]}"
         MOD_NAME="${MOD_AUTHOR}-${mod_name}"
         MOD_URL="$url"
-        MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/${MOD_NAME}"
+        # Install path resolved after profile selection
         
         # Set a generic description (user can modify this later)
         MOD_DESCRIPTION="Mod installed from Thunderstore: ${mod_name} by ${MOD_AUTHOR}"
@@ -127,7 +135,34 @@ set_default_mod() {
     MOD_AUTHOR="$DEFAULT_MOD_AUTHOR"
     MOD_DESCRIPTION="$DEFAULT_MOD_DESCRIPTION"
     MOD_URL="$DEFAULT_MOD_URL"
-    MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/${MOD_NAME}"
+    # Install path resolved after profile selection
+}
+
+# Resolve r2modman profile and derived paths
+resolve_profile() {
+    local profiles_base="/home/deck/.config/r2modmanPlus-local/REPO/profiles"
+    if [ -z "$PROFILE_NAME" ]; then
+        PROFILE_NAME="Default"
+    fi
+    PROFILE_PATH="$profiles_base/$PROFILE_NAME"
+    if [ ! -d "$PROFILE_PATH" ]; then
+        echo -e "${YELLOW}Profile '$PROFILE_NAME' not found under $profiles_base${NC}"
+        if [ "$PROFILE_NAME" != "Default" ] && [ -d "$profiles_base/Default" ]; then
+            echo -e "${YELLOW}Falling back to 'Default' profile${NC}"
+            PROFILE_NAME="Default"
+            PROFILE_PATH="$profiles_base/Default"
+        else
+            echo -e "${YELLOW}Proceeding with profile path even if not present (it may be created on first run)${NC}"
+        fi
+    fi
+    export MOD_PLUGIN_PATH="$PROFILE_PATH/BepInEx/plugins"
+    MODS_YML="$PROFILE_PATH/mods.yml"
+    if [ -n "$MOD_NAME" ]; then
+        MOD_INSTALL_PATH_REPO="$MOD_PLUGIN_PATH/$MOD_NAME"
+    fi
+    echo -e "${BLUE}Using profile:${NC} $PROFILE_NAME"
+    echo -e "${BLUE}Plugins path:${NC} $MOD_PLUGIN_PATH"
+    echo -e "${BLUE}mods.yml path:${NC} $MODS_YML"
 }
 
 # Function to initialize the script
@@ -155,6 +190,9 @@ init_script() {
     fi
     echo ""
     
+    # Resolve profile paths (after MOD_NAME is known)
+    resolve_profile
+
     # Initialize logging
     init_logging "modinstaller-modular" "$VERBOSE"
     log_message "INFO" "Mod Installer (Modular) started"
@@ -306,6 +344,7 @@ main() {
     echo -e "  Mod: $MOD_NAME"
     echo -e "  Version: $MOD_VERSION"
     echo -e "  Author: $MOD_AUTHOR"
+    echo -e "  Profile: $PROFILE_NAME"
     echo -e "  Install Path: $MOD_INSTALL_PATH_REPO"
     echo ""
     

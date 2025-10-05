@@ -22,8 +22,10 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-MOD_PLUGIN_PATH="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins"
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+PROFILE_NAME=""
+PROFILE_PATH=""
+MOD_PLUGIN_PATH=""
+MODS_YML=""
 
 # Global variables
 mod_info=""
@@ -38,6 +40,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -v, --verbose    Enable verbose logging"
+    echo "  -p, --profile    r2modman profile name (default: Default)"
     echo "  -h, --help       Show this help message"
     echo ""
     echo "Arguments:"
@@ -53,12 +56,17 @@ show_usage() {
 parse_arguments() {
     SEARCH_TERM=""
     VERBOSE=false
+    PROFILE_NAME=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
             -v|--verbose)
                 VERBOSE=true
                 shift
+                ;;
+            -p|--profile)
+                PROFILE_NAME="$2"
+                shift 2
                 ;;
             -h|--help)
                 show_usage
@@ -82,6 +90,29 @@ parse_arguments() {
     done
 }
 
+resolve_profile() {
+    local profiles_base="/home/deck/.config/r2modmanPlus-local/REPO/profiles"
+    if [ -z "$PROFILE_NAME" ]; then
+        PROFILE_NAME="Default"
+    fi
+    PROFILE_PATH="$profiles_base/$PROFILE_NAME"
+    if [ ! -d "$PROFILE_PATH" ]; then
+        echo -e "${YELLOW}Profile '$PROFILE_NAME' not found under $profiles_base${NC}"
+        if [ "$PROFILE_NAME" != "Default" ] && [ -d "$profiles_base/Default" ]; then
+            echo -e "${YELLOW}Falling back to 'Default' profile${NC}"
+            PROFILE_NAME="Default"
+            PROFILE_PATH="$profiles_base/Default"
+        else
+            echo -e "${YELLOW}Proceeding with profile path even if not present (it may be created on first run)${NC}"
+        fi
+    fi
+    MOD_PLUGIN_PATH="$PROFILE_PATH/BepInEx/plugins"
+    MODS_YML="$PROFILE_PATH/mods.yml"
+    echo -e "${BLUE}Using profile:${NC} $PROFILE_NAME"
+    echo -e "${BLUE}Plugins path:${NC} $MOD_PLUGIN_PATH"
+    echo -e "${BLUE}mods.yml path:${NC} $MODS_YML"
+}
+
 # Function to initialize the script
 init_script() {
     echo -e "${BLUE}==========================================${NC}"
@@ -92,6 +123,9 @@ init_script() {
     echo "This script will help you rollback any installed mod to a previous version."
     echo ""
     
+    # Resolve profile paths
+    resolve_profile
+
     # Initialize logging
     init_logging "modrollback-modular" "$VERBOSE"
     log_message "INFO" "Mod Rollback Tool (Modular) started"
