@@ -144,7 +144,7 @@ setup_environments() {
     
     # Create staging environment
     gh_print_status "INFO" "Creating staging environment..."
-    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/staging --method PUT --field wait_timer=0 --field prevent_self_review=false --field reviewers='[]' --field deployment_branch_policy='{\"protected_branches\":false,\"custom_branch_policies\":true}'" "Creating staging environment" false; then
+    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/staging --method PUT --field wait_timer=0" "Creating staging environment" false; then
         gh_print_status "SUCCESS" "Staging environment configured"
     else
         gh_print_status "WARNING" "Staging environment may already exist or could not be created"
@@ -152,13 +152,7 @@ setup_environments() {
     
     # Create production environment
     gh_print_status "INFO" "Creating production environment..."
-    local production_config="--field wait_timer=5 --field prevent_self_review=true --field deployment_branch_policy='{\"protected_branches\":true,\"custom_branch_policies\":false}'"
-    
-    if [ -n "$user_id" ]; then
-        production_config="$production_config --field reviewers='[{\"type\":\"User\",\"id\":$user_id}]'"
-    fi
-    
-    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/production --method PUT $production_config" "Creating production environment" false; then
+    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/production --method PUT --field wait_timer=5" "Creating production environment" false; then
         gh_print_status "SUCCESS" "Production environment configured"
     else
         gh_print_status "WARNING" "Production environment may already exist or could not be created"
@@ -166,7 +160,7 @@ setup_environments() {
     
     # Create development environment
     gh_print_status "INFO" "Creating development environment..."
-    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/development --method PUT --field wait_timer=0 --field prevent_self_review=false --field reviewers='[]' --field deployment_branch_policy='{\"protected_branches\":false,\"custom_branch_policies\":true}'" "Creating development environment" false; then
+    if gh_api_safe "gh api repos/$PROJECT_REPO/environments/development --method PUT --field wait_timer=0" "Creating development environment" false; then
         gh_print_status "SUCCESS" "Development environment configured"
     else
         gh_print_status "WARNING" "Development environment may already exist or could not be created"
@@ -367,9 +361,38 @@ EOF
 setup_branch_protection() {
     gh_print_section "🛡️ Setting up Branch Protection Rules"
     
+    # Create branch protection configuration files
+    cat > "$PROJECT_ROOT/branch_protection_main.json" << 'EOF'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["test"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1
+  },
+  "restrictions": null
+}
+EOF
+
+    cat > "$PROJECT_ROOT/branch_protection_develop.json" << 'EOF'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["test"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1
+  },
+  "restrictions": null
+}
+EOF
+    
     # Protect main branch
     gh_print_status "INFO" "Setting up protection for main branch..."
-    if gh_api_safe "gh api repos/$PROJECT_REPO/branches/main/protection --method PUT --field required_status_checks='{\"strict\":true,\"contexts\":[\"test\",\"security\"]}' --field enforce_admins=true --field required_pull_request_reviews='{\"required_approving_review_count\":1}' --field restrictions=null" "Protecting main branch" false; then
+    if gh_api_safe "gh api repos/$PROJECT_REPO/branches/main/protection --method PUT --input $PROJECT_ROOT/branch_protection_main.json" "Protecting main branch" false; then
         gh_print_status "SUCCESS" "Main branch protection configured"
     else
         gh_print_status "WARNING" "Could not set main branch protection - please configure manually"
@@ -377,11 +400,14 @@ setup_branch_protection() {
     
     # Protect develop branch
     gh_print_status "INFO" "Setting up protection for develop branch..."
-    if gh_api_safe "gh api repos/$PROJECT_REPO/branches/develop/protection --method PUT --field required_status_checks='{\"strict\":true,\"contexts\":[\"test\",\"security\"]}' --field enforce_admins=false --field required_pull_request_reviews='{\"required_approving_review_count\":1}' --field restrictions=null" "Protecting develop branch" false; then
+    if gh_api_safe "gh api repos/$PROJECT_REPO/branches/develop/protection --method PUT --input $PROJECT_ROOT/branch_protection_develop.json" "Protecting develop branch" false; then
         gh_print_status "SUCCESS" "Develop branch protection configured"
     else
         gh_print_status "WARNING" "Could not set develop branch protection - please configure manually"
     fi
+    
+    # Clean up temporary files
+    rm -f "$PROJECT_ROOT/branch_protection_main.json" "$PROJECT_ROOT/branch_protection_develop.json"
     
     gh_print_status "SUCCESS" "Branch protection setup completed"
 }

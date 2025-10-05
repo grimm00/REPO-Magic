@@ -107,7 +107,7 @@ check_github_integration() {
     
     # Check secrets
     gh_print_status "INFO" "Checking secrets..."
-    local secret_count=$(gh secret list --jq 'length' 2>/dev/null || echo "0")
+    local secret_count=$(gh secret list 2>/dev/null | wc -l || echo "0")
     echo -e "${GH_BLUE}   Repository secrets: $secret_count${GH_NC}"
     
     if [ "$secret_count" -gt 0 ]; then
