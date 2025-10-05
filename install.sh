@@ -24,7 +24,7 @@ fi
 
 # Check dependencies
 echo -e "${BLUE}Step 1: Checking dependencies...${NC}"
-if ! ./check_dependencies.sh; then
+if ! bash check_dependencies.sh; then
     echo ""
     echo -e "${RED}❌ Please install the missing dependencies and run this script again.${NC}"
     exit 1
@@ -34,9 +34,11 @@ echo ""
 echo -e "${BLUE}Step 2: Setting up permissions...${NC}"
 
 # Set executable permissions on all scripts
-chmod +x *.sh
-chmod +x lib/*.sh
-chmod +x scripts/standalone/*.sh
+shopt -s nullglob
+chmod +x *.sh 2>/dev/null || true
+chmod +x lib/*.sh 2>/dev/null || true
+chmod +x scripts/standalone/*.sh 2>/dev/null || true
+shopt -u nullglob
 
 echo "✅ Set executable permissions on all scripts"
 
