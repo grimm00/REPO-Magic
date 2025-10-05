@@ -86,8 +86,8 @@ jobs:
           --title "Release $VERSION - Mod Management Tools" \
           --notes-file release_notes.md \
           --latest \
-          /tmp/REPO-Magic-v${VERSION#v}.zip \
-          /tmp/REPO-Magic-User-v${VERSION#v}.zip
+          /tmp/REPO-Magic-v1.0.zip \
+          /tmp/REPO-Magic-User-v1.0.zip
           
     - name: Update documentation
       run: |
