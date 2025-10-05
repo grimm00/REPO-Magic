@@ -3,12 +3,20 @@
 # REPO-Magic Installation Script
 # This script sets up the mod management tools for your friends
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Colors for output (with fallback for terminals that don't support colors)
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
 
 echo "=========================================="
 echo "  REPO-Magic Installation Script"
@@ -17,7 +25,7 @@ echo ""
 
 # Check if we're in the right directory
 if [ ! -f "modrollback.sh" ] || [ ! -f "modinstaller.sh" ]; then
-    echo -e "${RED}❌ Error: Please run this script from the REPO-Magic directory${NC}"
+    echo -e "${RED}[ERROR] Error: Please run this script from the REPO-Magic directory${NC}"
     echo "   Make sure you're in the folder containing modrollback.sh and modinstaller.sh"
     exit 1
 fi
@@ -31,7 +39,7 @@ reenable_readonly() {
         if command -v steamos-readonly >/dev/null 2>&1; then
             echo -e "${BLUE}Re-enabling SteamOS read-only mode...${NC}"
             sudo steamos-readonly enable
-            echo "✅ Read-only mode re-enabled"
+            echo "[OK] Read-only mode re-enabled"
         fi
     fi
 }
@@ -48,7 +56,7 @@ install_dependencies() {
     done
     
     if [ ${#missing_deps[@]} -eq 0 ]; then
-        echo "✅ All required dependencies are already installed"
+        echo "[OK] All required dependencies are already installed"
         return 0
     fi
     
@@ -66,9 +74,9 @@ install_dependencies() {
             # Check if system is in read-only mode
             if command -v steamos-readonly >/dev/null 2>&1; then
                 if steamos-readonly status 2>/dev/null | grep -q "enabled"; then
-                    echo -e "${YELLOW}⚠️  SteamOS is in read-only mode. Temporarily disabling...${NC}"
+                    echo -e "${YELLOW}[WARNING] SteamOS is in read-only mode. Temporarily disabling...${NC}"
                     sudo steamos-readonly disable
-                    echo "✅ Read-only mode disabled"
+                    echo "[OK] Read-only mode disabled"
                 fi
             fi
             
@@ -99,22 +107,22 @@ install_dependencies() {
         
         # Try installation with keyring handling
         if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
-            echo "✅ Dependencies installed successfully"
+            echo "[OK] Dependencies installed successfully"
             reenable_readonly
             return 0
         else
-            echo -e "${YELLOW}⚠️  First attempt failed, trying with keyring refresh...${NC}"
+            echo -e "${YELLOW}[WARNING]  First attempt failed, trying with keyring refresh...${NC}"
             
             # Refresh keyring and try again
             sudo pacman-key --refresh-keys 2>/dev/null || true
             sudo pacman -Sy 2>/dev/null || true
             
             if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
-                echo "✅ Dependencies installed successfully (after keyring refresh)"
+                echo "[OK] Dependencies installed successfully (after keyring refresh)"
                 reenable_readonly
                 return 0
             else
-                echo -e "${RED}❌ Failed to install dependencies with pacman${NC}"
+                echo -e "${RED}[ERROR] Failed to install dependencies with pacman${NC}"
                 echo -e "${YELLOW}This might be a keyring issue. Try running:${NC}"
                 echo "  sudo pacman-key --init"
                 echo "  sudo pacman-key --populate archlinux"
@@ -128,10 +136,10 @@ install_dependencies() {
         echo "Installing missing dependencies..."
         
         if sudo apt update && sudo apt install -y "${missing_deps[@]}"; then
-            echo "✅ Dependencies installed successfully"
+            echo "[OK] Dependencies installed successfully"
             return 0
         else
-            echo -e "${RED}❌ Failed to install dependencies with apt${NC}"
+            echo -e "${RED}[ERROR] Failed to install dependencies with apt${NC}"
             return 1
         fi
         
@@ -140,15 +148,15 @@ install_dependencies() {
         echo "Installing missing dependencies..."
         
         if sudo dnf install -y "${missing_deps[@]}"; then
-            echo "✅ Dependencies installed successfully"
+            echo "[OK] Dependencies installed successfully"
             return 0
         else
-            echo -e "${RED}❌ Failed to install dependencies with dnf${NC}"
+            echo -e "${RED}[ERROR] Failed to install dependencies with dnf${NC}"
             return 1
         fi
         
     else
-        echo -e "${RED}❌ Unsupported package manager${NC}"
+        echo -e "${RED}[ERROR] Unsupported package manager${NC}"
         echo "Please install the missing dependencies manually:"
         for dep in "${missing_deps[@]}"; do
             echo "  • $dep"
@@ -163,7 +171,7 @@ if ! install_dependencies; then
     echo -e "${YELLOW}Automatic installation failed. Running dependency check...${NC}"
     if ! ./check_dependencies.sh; then
         echo ""
-        echo -e "${RED}❌ Please install the missing dependencies manually and run this script again.${NC}"
+        echo -e "${RED}[ERROR] Please install the missing dependencies manually and run this script again.${NC}"
         exit 1
     fi
 fi
@@ -172,7 +180,7 @@ fi
 echo ""
 echo -e "${BLUE}Verifying all dependencies are installed...${NC}"
 if ! ./check_dependencies.sh; then
-    echo -e "${RED}❌ Some dependencies are still missing after installation attempt${NC}"
+    echo -e "${RED}[ERROR] Some dependencies are still missing after installation attempt${NC}"
     exit 1
 fi
 
@@ -184,7 +192,7 @@ chmod +x *.sh
 chmod +x lib/*.sh
 chmod +x scripts/standalone/*.sh
 
-echo "✅ Set executable permissions on all scripts"
+echo "[OK] Set executable permissions on all scripts"
 
 echo ""
 echo -e "${BLUE}Step 3: Testing basic functionality...${NC}"
@@ -192,21 +200,21 @@ echo -e "${BLUE}Step 3: Testing basic functionality...${NC}"
 # Test basic functionality
 echo "Testing modrollback.sh..."
 if ./modrollback.sh --help >/dev/null 2>&1; then
-    echo "✅ modrollback.sh is working"
+    echo "[OK] modrollback.sh is working"
 else
-    echo -e "${YELLOW}⚠️  modrollback.sh test failed (this might be normal if no mods are installed)${NC}"
+    echo -e "${YELLOW}[WARNING]  modrollback.sh test failed (this might be normal if no mods are installed)${NC}"
 fi
 
 echo "Testing modinstaller.sh..."
 if ./modinstaller.sh --help >/dev/null 2>&1; then
-    echo "✅ modinstaller.sh is working"
+    echo "[OK] modinstaller.sh is working"
 else
-    echo -e "${YELLOW}⚠️  modinstaller.sh test failed${NC}"
+    echo -e "${YELLOW}[WARNING]  modinstaller.sh test failed${NC}"
 fi
 
 echo ""
 echo "=========================================="
-echo -e "🎉 ${GREEN}Installation Complete!${NC}"
+echo -e "[SUCCESS] ${GREEN}Installation Complete!${NC}"
 echo "=========================================="
 echo ""
 echo -e "${BLUE}Quick Start Guide:${NC}"
@@ -239,4 +247,4 @@ echo "• ${GREEN}docs/troubleshooting/${NC} - Troubleshooting help"
 echo ""
 echo -e "${YELLOW}Note:${NC} Make sure you have r2modmanPlus installed and configured!"
 echo ""
-echo -e "${GREEN}Happy modding! 🎮${NC}"
+echo -e "${GREEN}Happy modding! [GAME]${NC}"
