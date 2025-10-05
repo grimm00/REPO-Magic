@@ -64,8 +64,39 @@ The mod utilities rely on global variables set by profile utilities:
 
 Consider refactoring to pass these as parameters to avoid dependency issues.
 
+## Solution: Switch to mods.yml-based Discovery
+
+### Root Cause Analysis
+After investigation, the issue is not just library sourcing order, but the fundamental approach to mod discovery. The current filesystem-based approach has several problems:
+
+1. **Variable scope issues** with MOD_PLUGIN_PATH in subshells
+2. **Filesystem sync issues** between actual files and r2modmanPlus state
+3. **Complex logic** prone to edge cases and bugs
+
+### New Approach: mods.yml-based Discovery
+Instead of scanning the filesystem for `manifest.json` files, we'll use the `mods.yml` file as the authoritative source:
+
+**Advantages**:
+- ✅ Single source of truth (r2modmanPlus managed)
+- ✅ Already parsed and validated
+- ✅ Contains all metadata (author, version, enabled status)
+- ✅ More reliable and consistent
+- ✅ Simpler implementation
+- ✅ No variable scope issues
+
+**Implementation**:
+- Parse `mods.yml` using `jq` (already available)
+- Extract mod names, authors, versions directly
+- Use existing YAML utilities in `lib/yaml_utils.sh`
+
+### Files to Update
+- `lib/mod_utils.sh` - Replace filesystem scanning with mods.yml parsing
+- `lib/yaml_utils.sh` - Add mod discovery functions
+- Update all scripts that use mod discovery
+
 ## Status
 - **Identified**: October 5, 2025
-- **Root Cause**: Library sourcing order
-- **Fix**: Reorder library sourcing in main scripts
+- **Root Cause**: Filesystem-based discovery approach
+- **Solution**: Switch to mods.yml-based discovery
 - **Priority**: High (affects core functionality)
+- **Implementation**: Part of Task 2
