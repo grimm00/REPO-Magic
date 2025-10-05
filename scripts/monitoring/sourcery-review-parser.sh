@@ -39,12 +39,17 @@ RICH_DETAILS=false
 # Sanitize a text block: remove control chars and escape HTML for safe embedding
 sanitize_block() {
     local in="$1"
-    # Remove ASCII control characters except tab/newline
+    # Remove ASCII control characters except tab/newline, then HTML-escape via python
     local cleaned
     cleaned=$(printf "%s" "$in" | tr -d '\000-\010\013\014\016-\037\177')
-    # Escape HTML special chars
-    cleaned=$(printf "%s" "$cleaned" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g')
-    echo "$cleaned"
+    if command -v python3 >/dev/null 2>&1; then
+        printf "%s" "$cleaned" | python3 -c 'import sys,html; sys.stdout.write(html.escape(sys.stdin.read()))'
+    else
+        # Fallback: sed with careful placeholder strategy
+        cleaned=$(printf "%s" "$cleaned" | sed -e 's/&/[AMP]/g' -e 's/</[LT]/g' -e 's/>/[GT]/g')
+        cleaned=$(printf "%s" "$cleaned" | sed -e 's/\[AMP\]/\&amp;/g' -e 's/\[LT\]/\&lt;/g' -e 's/\[GT\]/\&gt;/g')
+        printf "%s" "$cleaned"
+    fi
 }
 
 extract_sourcery_review() {
