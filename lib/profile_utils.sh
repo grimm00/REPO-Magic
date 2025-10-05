@@ -25,6 +25,15 @@ sanitize_profile_name() {
         return 0
     fi
     
+    # Trim whitespace first
+    name=$(echo "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
+    # Check for empty name after trimming
+    if [ -z "$name" ]; then
+        echo "Error: Profile name cannot be empty or only whitespace" >&2
+        exit 1
+    fi
+    
     # Remove dangerous characters and patterns
     if [[ "$name" =~ \.\. ]] || [[ "$name" =~ / ]] || [[ "$name" =~ \\ ]]; then
         echo "Error: Profile name contains path traversal characters" >&2
@@ -48,9 +57,6 @@ sanitize_profile_name() {
         echo "Error: Profile name too long (max 50 characters)" >&2
         exit 1
     fi
-    
-    # Trim whitespace
-    name=$(echo "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     
     echo "$name"
 }
@@ -80,7 +86,7 @@ resolve_profile() {
     
     # Set derived paths
     export MOD_PLUGIN_PATH="$PROFILE_PATH/BepInEx/plugins"
-    MODS_YML="$PROFILE_PATH/mods.yml"
+    export MODS_YML="$PROFILE_PATH/mods.yml"
     
     # Print profile information
     echo -e "${BLUE}Using profile:${NC} $PROFILE_NAME"
