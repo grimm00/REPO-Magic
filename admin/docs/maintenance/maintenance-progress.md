@@ -25,10 +25,10 @@ Tracking progress on the maintenance and refactor plan outlined in `maintenance-
 - ✅ New path reflected in README and docs
 - ✅ Backward compatibility maintained with wrapper script
 
-## In Progress
+## Completed
 
-### 🔄 Task 2: Shared Profile Helper + Mod Discovery Fix
-**Status**: IN PROGRESS  
+### ✅ Task 2: Shared Profile Helper + Mod Discovery Fix
+**Status**: COMPLETED  
 **Priority**: HIGH
 
 **Objective**: Create `lib/profile_utils.sh` to eliminate duplicate `resolve_profile()` logic between `modinstaller.sh` and `modrollback.sh`, and fix mod discovery by switching to mods.yml-based approach.
@@ -50,20 +50,25 @@ Tracking progress on the maintenance and refactor plan outlined in `maintenance-
 4. Update `scripts/standalone/clean_mods_yml.sh`:
    - Replace hardcoded path with `R2MODMAN_BASE` support
 
-5. **NEW: Fix Mod Discovery Issue**:
+5. **✅ COMPLETED: Fix Mod Discovery Issue**:
    - **Problem**: Scripts showing mods from wrong profile due to filesystem-based discovery
    - **Solution**: Switch to mods.yml-based discovery
-   - Add functions to `lib/yaml_utils.sh`: `list_mods_from_yml()`, `search_mods_from_yml()`
-   - Update `lib/mod_utils.sh` to use mods.yml instead of filesystem scanning
-   - Benefits: Single source of truth, no variable scope issues, more reliable
+   - ✅ Added functions to `lib/yaml_utils.sh`: `list_mods_from_yml()`, `search_mods_from_yml()`, `get_mod_info_from_yml()`
+   - ✅ Updated `lib/mod_utils.sh` to use mods.yml instead of filesystem scanning
+   - ✅ Benefits achieved: Single source of truth, no variable scope issues, more reliable
+   - ✅ **Testing confirmed**: Friends profile shows correct mods, Default profile shows different mods
 
-**Files to change**:
-- `lib/profile_utils.sh` (new)
-- `modinstaller.sh` (source lib, remove duplicate)
-- `modrollback.sh` (source lib, remove duplicate)
-- `scripts/standalone/clean_mods_yml.sh` (path portability)
-- `lib/yaml_utils.sh` (add mods.yml discovery functions)
-- `lib/mod_utils.sh` (replace filesystem scanning with mods.yml parsing)
+**✅ Files completed**:
+- ✅ `lib/profile_utils.sh` (created)
+- ✅ `modinstaller.sh` (updated to use shared lib)
+- ✅ `modrollback.sh` (updated to use shared lib)
+- ✅ `scripts/standalone/clean_mods_yml.sh` (path portability)
+- ✅ `lib/yaml_utils.sh` (added mods.yml discovery functions)
+- ✅ `lib/mod_utils.sh` (replaced filesystem scanning with mods.yml parsing)
+
+## In Progress
+
+*No tasks currently in progress*
 
 ## Pending Tasks
 
@@ -85,18 +90,18 @@ Tracking progress on the maintenance and refactor plan outlined in `maintenance-
 
 ## Next Steps
 
-1. **Immediate**: Complete Task 2 (Shared Profile Helper + Mod Discovery Fix)
+1. **✅ COMPLETED**: Task 2 (Shared Profile Helper + Mod Discovery Fix)
    - ✅ Create `lib/profile_utils.sh` (COMPLETED)
    - ✅ Update main scripts to use shared library (COMPLETED)
-   - 🔄 **NEXT**: Add mods.yml-based discovery functions to `lib/yaml_utils.sh`
-   - 🔄 **NEXT**: Update `lib/mod_utils.sh` to use mods.yml instead of filesystem scanning
-   - 🔄 **NEXT**: Test mod discovery with different profiles
+   - ✅ Add mods.yml-based discovery functions to `lib/yaml_utils.sh` (COMPLETED)
+   - ✅ Update `lib/mod_utils.sh` to use mods.yml instead of filesystem scanning (COMPLETED)
+   - ✅ Test mod discovery with different profiles (COMPLETED)
 
-2. **After Task 2**: Tasks 3-4 will be automatically completed as part of Task 2 implementation
+2. **✅ COMPLETED**: Tasks 3-4 were automatically completed as part of Task 2 implementation
 
-3. **Then**: Task 5 (Standalone Cleaner De-duplication)
+3. **NEXT**: Task 5 (Standalone Cleaner De-duplication)
 
-4. **Finally**: Task 6 (Sourcery Parser Documentation)
+4. **Then**: Task 6 (Sourcery Parser Documentation)
 
 ## Testing Strategy
 

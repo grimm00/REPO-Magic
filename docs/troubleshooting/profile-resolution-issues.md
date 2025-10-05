@@ -100,3 +100,27 @@ Instead of scanning the filesystem for `manifest.json` files, we'll use the `mod
 - **Solution**: Switch to mods.yml-based discovery
 - **Priority**: High (affects core functionality)
 - **Implementation**: Part of Task 2
+- **Status**: ✅ **RESOLVED** - October 5, 2025
+
+## Resolution Summary
+
+### ✅ **Successfully Implemented**:
+- **New mods.yml-based discovery functions** in `lib/yaml_utils.sh`:
+  - `list_mods_from_yml()` - Parse mods.yml and return mod list
+  - `search_mods_from_yml()` - Search mods in mods.yml by name
+  - `get_mod_info_from_yml()` - Get specific mod info by name
+- **Updated `lib/mod_utils.sh`** to use mods.yml instead of filesystem scanning
+- **Eliminated variable scope issues** that caused wrong profile mods to be displayed
+
+### ✅ **Testing Results**:
+- **Friends profile**: Correctly shows Friends-specific mods (Spindles-PrivateLateJoin, Rozza-ShowEnemyHealth, etc.)
+- **Default profile**: Correctly shows Default-specific mods (ShaderLaze-NoSaveLimit, SeroRonin-ItemBundles, etc.)
+- **Search functionality**: Working correctly (e.g., searching "Spindles" finds both Spindles mods)
+- **No more profile resolution issues**: Scripts now show correct mods for each profile
+
+### ✅ **Benefits Achieved**:
+- Single source of truth (r2modmanPlus managed)
+- No variable scope issues
+- More reliable and consistent
+- Simpler implementation
+- Profile-specific mod lists working correctly
