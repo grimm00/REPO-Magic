@@ -20,29 +20,44 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Configuration
-MOD_NAME="BULLETBOT-MoreUpgrades"
-MOD_VERSION="1.4.8"
-MOD_AUTHOR="BULLETBOT"
-MOD_DESCRIPTION="Adds more upgrade items to the game, has an library and is highly configurable."
-MOD_URL="https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/"
-MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/BULLETBOT-MoreUpgrades"
+# Configuration (can be overridden by command line arguments)
+MOD_NAME=""
+MOD_VERSION=""
+MOD_AUTHOR=""
+MOD_DESCRIPTION=""
+MOD_URL=""
+MOD_INSTALL_PATH_REPO=""
 MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+
+# Default MoreUpgrades mod (for backward compatibility)
+DEFAULT_MOD_NAME="BULLETBOT-MoreUpgrades"
+DEFAULT_MOD_VERSION="1.4.8"
+DEFAULT_MOD_AUTHOR="BULLETBOT"
+DEFAULT_MOD_DESCRIPTION="Adds more upgrade items to the game, has an library and is highly configurable."
+DEFAULT_MOD_URL="https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/"
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [MOD_URL]"
     echo ""
     echo "Options:"
     echo "  -v, --verbose    Enable verbose logging"
     echo "  -h, --help       Show this help message"
     echo ""
-    echo "This script installs the MoreUpgrades mod for Risk of Rain 2 on SteamOS."
+    echo "Arguments:"
+    echo "  MOD_URL          Thunderstore download URL (optional)"
+    echo ""
+    echo "Examples:"
+    echo "  $0                                    # Install default MoreUpgrades mod"
+    echo "  $0 https://thunderstore.io/package/download/AUTHOR/MOD/1.0.0/  # Install specific mod"
+    echo ""
+    echo "This script installs mods from Thunderstore for Risk of Rain 2 on SteamOS."
 }
 
 # Function to parse command line arguments
 parse_arguments() {
     VERBOSE=false
+    MOD_URL=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -60,22 +75,84 @@ parse_arguments() {
                 exit 1
                 ;;
             *)
-                echo -e "${RED}Unexpected argument: $1${NC}"
-                show_usage
-                exit 1
+                if [ -z "$MOD_URL" ]; then
+                    MOD_URL="$1"
+                else
+                    echo -e "${RED}Multiple URLs provided. Please specify only one.${NC}"
+                    show_usage
+                    exit 1
+                fi
+                shift
                 ;;
         esac
     done
 }
 
+# Function to parse Thunderstore URL and extract mod information
+parse_thunderstore_url() {
+    local url="$1"
+    
+    # Thunderstore URL pattern: https://thunderstore.io/package/download/AUTHOR/MOD/VERSION/
+    if [[ "$url" =~ https://thunderstore\.io/package/download/([^/]+)/([^/]+)/([^/]+)/ ]]; then
+        MOD_AUTHOR="${BASH_REMATCH[1]}"
+        local mod_name="${BASH_REMATCH[2]}"
+        MOD_VERSION="${BASH_REMATCH[3]}"
+        MOD_NAME="${MOD_AUTHOR}-${mod_name}"
+        MOD_URL="$url"
+        MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/${MOD_NAME}"
+        
+        # Set a generic description (user can modify this later)
+        MOD_DESCRIPTION="Mod installed from Thunderstore: ${mod_name} by ${MOD_AUTHOR}"
+        
+        echo "Parsed mod information:"
+        echo "  Author: $MOD_AUTHOR"
+        echo "  Mod Name: $mod_name"
+        echo "  Full Name: $MOD_NAME"
+        echo "  Version: $MOD_VERSION"
+        echo "  URL: $MOD_URL"
+        echo "  Install Path: $MOD_INSTALL_PATH_REPO"
+        
+        return 0
+    else
+        echo -e "${RED}Invalid Thunderstore URL format${NC}"
+        echo "Expected format: https://thunderstore.io/package/download/AUTHOR/MOD/VERSION/"
+        return 1
+    fi
+}
+
+# Function to set default mod (MoreUpgrades)
+set_default_mod() {
+    MOD_NAME="$DEFAULT_MOD_NAME"
+    MOD_VERSION="$DEFAULT_MOD_VERSION"
+    MOD_AUTHOR="$DEFAULT_MOD_AUTHOR"
+    MOD_DESCRIPTION="$DEFAULT_MOD_DESCRIPTION"
+    MOD_URL="$DEFAULT_MOD_URL"
+    MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/${MOD_NAME}"
+}
+
 # Function to initialize the script
 init_script() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  MoreUpgrades Mod Installer for SteamOS${NC}"
+    echo -e "${BLUE}  Thunderstore Mod Installer for SteamOS${NC}"
     echo -e "${BLUE}  (Modular Version)${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo ""
-    echo "This script will install the MoreUpgrades mod for Risk of Rain 2."
+    
+    # Determine which mod to install
+    if [ -n "$MOD_URL" ]; then
+        echo "This script will install a mod from Thunderstore."
+        echo ""
+        echo "Parsing Thunderstore URL..."
+        if ! parse_thunderstore_url "$MOD_URL"; then
+            echo -e "${RED}Failed to parse Thunderstore URL${NC}"
+            exit 1
+        fi
+    else
+        echo "This script will install the default MoreUpgrades mod for Risk of Rain 2."
+        echo ""
+        echo "Using default mod configuration..."
+        set_default_mod
+    fi
     echo ""
     
     # Initialize logging
