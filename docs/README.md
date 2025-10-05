@@ -34,6 +34,21 @@ scripts/monitoring/pr-feedback.sh <PR_NUMBER> [optional-name]
 scripts/monitoring/pr-feedback.sh 12 my-review.md
 ```
 
+### Standalone tools
+```bash
+# Clean mods.yml (with backward compatibility wrapper)
+./clean_mods_yml.sh Default
+
+# Or use direct path
+./scripts/standalone/clean_mods_yml.sh Default
+
+# Simple mod installer
+./scripts/standalone/modinstaller-simple.sh
+
+# Simple mod rollback
+./scripts/standalone/modrollback-simple.sh
+```
+
 ### Alias (if configured)
 ```bash
 pr-feedback <PR_NUMBER> [optional-name]

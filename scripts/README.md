@@ -11,7 +11,14 @@ scripts/
 ├── setup/                   # Setup and configuration scripts
 │   └── github-setup.sh     # Comprehensive GitHub setup automation
 ├── monitoring/              # Monitoring and status checking
-│   └── project-status.sh   # Project health and status dashboard
+│   ├── project-status.sh   # Project health and status dashboard
+│   ├── sourcery-priority-matrix.sh  # Sourcery review analysis
+│   ├── sourcery-review-parser.sh   # Sourcery review parser
+│   └── pr-feedback.sh      # PR feedback generation helper
+├── standalone/              # Standalone single-file tools
+│   ├── modinstaller-simple.sh  # Single-file mod installer
+│   ├── modrollback-simple.sh   # Single-file mod rollback
+│   └── clean_mods_yml.sh   # YAML cleanup tool
 └── README.md               # This file
 ```
 
@@ -81,6 +88,38 @@ gh_validate_repository
 ./scripts/setup/github-setup.sh ci-cd
 ./scripts/setup/github-setup.sh protection
 ./scripts/setup/github-setup.sh verify
+```
+
+### Standalone Tools (`scripts/standalone/`)
+
+These are single-file scripts that can be used independently:
+
+#### `modinstaller-simple.sh`
+**Purpose**: Single-file mod installer (original version)
+
+**Usage**:
+```bash
+./scripts/standalone/modinstaller-simple.sh
+```
+
+#### `modrollback-simple.sh`
+**Purpose**: Single-file mod rollback tool (original version)
+
+**Usage**:
+```bash
+./scripts/standalone/modrollback-simple.sh
+```
+
+#### `clean_mods_yml.sh`
+**Purpose**: YAML cleanup tool for mods.yml files
+
+**Usage**:
+```bash
+# Clean mods.yml for Default profile
+./scripts/standalone/clean_mods_yml.sh Default
+
+# Or use the backward compatibility wrapper
+./clean_mods_yml.sh Default
 ```
 
 ### Monitoring Scripts (`scripts/monitoring/`)
