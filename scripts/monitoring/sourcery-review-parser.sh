@@ -28,6 +28,7 @@ echo ""
 # ============================================================================
 
 OUTPUT_FILE=""
+THINK_MODE=false
 
 # ============================================================================
 # FIXED PARSING FUNCTIONS
@@ -75,6 +76,14 @@ create_clean_output() {
     local comment_count=$(echo "$content" | grep -c "^### Comment [0-9]")
     output+="## Summary\n\n"
     output+="Total Comments: $comment_count\n\n"
+
+    if [ "$THINK_MODE" = true ]; then
+        output+="### Parsing Notes (Think Mode)\n"
+        output+="- We search for comments using the header pattern '### Comment N'\n"
+        output+="- Location is taken from the first '<location>...</location>' tag, then HTML tags and backticks are stripped, and whitespace is trimmed\n"
+        output+="- Type is the first bold '**...**' phrase; trailing colons are removed to normalize values like 'suggestion:' -> 'suggestion'\n"
+        output+="- Description is the first non-empty, non-bold line between '<issue_to_address>' and the next code fence, with markdown tokens removed\n\n"
+    fi
     
     # Comments section
     output+="## Individual Comments\n\n"
@@ -168,6 +177,14 @@ format_single_comment_fixed() {
     if [ -n "$description" ]; then
         output+="**Description**: $description\n\n"
     fi
+
+    if [ "$THINK_MODE" = true ]; then
+        output+="<details>\n<summary>Reasoning (why these values)</summary>\n\n"
+        output+="- Location extracted from first <location> tag; tags/backticks stripped; trimmed.\n"
+        output+="- Type derived from first bold token; trailing colon removed for normalization.\n"
+        output+="- Description chosen as first substantive line within <issue_to_address> block, excluding markdown and empty lines.\n\n"
+        output+="</details>\n\n"
+    fi
     
     # Add collapsible full content
     output+="<details>\n<summary>Full Comment Content</summary>\n\n"
@@ -193,6 +210,10 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_FILE="$2"
             shift 2
             ;;
+        --think|--explain|--verbose)
+            THINK_MODE=true
+            shift 1
+            ;;
         --help|-h)
             echo "Usage: $0 [PR_NUMBER] [OPTIONS]"
             echo ""
@@ -201,12 +222,14 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --output FILE      - Save output to file"
+            echo "  --think            - Include reasoning about how fields were extracted"
             echo "  --help             - Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0                    # Parse current user's open PR"
             echo "  $0 123               # Parse PR #123"
-            echo "  $0 123 --output review.md # Save to file"
+            echo "  $0 123 --output review.md         # Save to file"
+            echo "  $0 123 --think                    # Show extraction reasoning"
             exit 0
             ;;
         *)
