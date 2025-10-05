@@ -12,77 +12,30 @@ NC='\033[0m' # No Color
 
 # Function to list all installed mods
 list_installed_mods() {
-    local temp_file=$(mktemp)
-    
-    if [ ! -d "$MOD_PLUGIN_PATH" ]; then
-        echo -e "${RED}Error: Mod plugin path not found: $MOD_PLUGIN_PATH${NC}"
-        log_message "ERROR" "Mod plugin path not found: $MOD_PLUGIN_PATH"
-        rm "$temp_file"
+    # Use mods.yml-based discovery instead of filesystem scanning
+    if [ -z "$MODS_YML" ]; then
+        echo -e "${RED}Error: MODS_YML path not set${NC}"
+        log_message "ERROR" "MODS_YML path not set"
         return 1
     fi
     
-    echo "Scanning installed mods..."
-    log_message "INFO" "Scanning installed mods in $MOD_PLUGIN_PATH"
-    
-    # Find all mod directories
-    find "$MOD_PLUGIN_PATH" -maxdepth 1 -type d -name "*-*" | while read -r mod_dir; do
-        if [ -f "$mod_dir/manifest.json" ]; then
-            local mod_name=$(basename "$mod_dir")
-            local author=$(echo "$mod_name" | cut -d'-' -f1)
-            local version=$(grep '"version_number"' "$mod_dir/manifest.json" | sed 's/.*"version_number": *"\([^"]*\)".*/\1/')
-            
-            if [ -z "$version" ]; then
-                version="Unknown"
-            fi
-            
-            echo "$mod_name|$author|$version" >> "$temp_file"
-        fi
-    done
-    
-    # Sort the results
-    sort "$temp_file" > "${temp_file}.sorted"
-    mv "${temp_file}.sorted" "$temp_file"
-    
-    echo "$temp_file"
+    # Call the mods.yml-based function
+    list_mods_from_yml "$MODS_YML"
 }
 
 # Function to search for mods matching a term
 search_mods() {
     local search_term="$1"
-    local temp_file=$(mktemp)
     
-    if [ ! -d "$MOD_PLUGIN_PATH" ]; then
-        echo -e "${RED}Error: Mod plugin path not found: $MOD_PLUGIN_PATH${NC}"
-        log_message "ERROR" "Mod plugin path not found: $MOD_PLUGIN_PATH"
-        rm "$temp_file"
+    # Use mods.yml-based discovery instead of filesystem scanning
+    if [ -z "$MODS_YML" ]; then
+        echo -e "${RED}Error: MODS_YML path not set${NC}"
+        log_message "ERROR" "MODS_YML path not set"
         return 1
     fi
     
-    log_message "INFO" "Searching for mods matching: '$search_term'"
-    
-    # Find all mod directories and filter by search term
-    find "$MOD_PLUGIN_PATH" -maxdepth 1 -type d -name "*-*" | while read -r mod_dir; do
-        if [ -f "$mod_dir/manifest.json" ]; then
-            local mod_name=$(basename "$mod_dir")
-            local author=$(echo "$mod_name" | cut -d'-' -f1)
-            local version=$(grep '"version_number"' "$mod_dir/manifest.json" | sed 's/.*"version_number": *"\([^"]*\)".*/\1/')
-            
-            if [ -z "$version" ]; then
-                version="Unknown"
-            fi
-            
-            # Check if mod name or author matches search term (case insensitive)
-            if echo "$mod_name" | grep -qi "$search_term" || echo "$author" | grep -qi "$search_term"; then
-                echo "$mod_name|$author|$version" >> "$temp_file"
-            fi
-        fi
-    done
-    
-    # Sort the results
-    sort "$temp_file" > "${temp_file}.sorted"
-    mv "${temp_file}.sorted" "$temp_file"
-    
-    echo "$temp_file"
+    # Call the mods.yml-based function
+    search_mods_from_yml "$MODS_YML" "$search_term"
 }
 
 # Function to get user input for mod selection

@@ -72,7 +72,26 @@ git remote add origin https://github.com/YOUR_USERNAME/REPO-Magic.git
 git push -u origin main
 ```
 
-## Step 4: Set Up Sourcery Integration
+## Step 4: Set Up Git Workflow
+
+### Git Flow Strategy
+
+✅ **Already Set Up**: The project now follows Git Flow with proper branching:
+
+- **`main`**: Production-ready code (protected)
+- **`develop`**: Integration branch for features
+- **`feature/*`**: Individual feature development
+
+**Workflow:**
+1. Create feature branches from `develop`
+2. Develop and test features
+3. Create PR: `feature/*` → `develop`
+4. After testing, create PR: `develop` → `main`
+5. Tag releases from `main`
+
+**Documentation**: See [docs/git-workflow.md](docs/git-workflow.md) for complete workflow guide.
+
+## Step 5: Set Up Sourcery Integration
 
 ### Sourcery Configuration
 
@@ -170,13 +189,35 @@ EOF
 ```
 
 ### Set Up Sourcery Webhook
+
+✅ **Already Created**: The Sourcery webhook has been successfully set up for your repository.
+
+**Webhook Details:**
+- **ID**: 573446199
+- **URL**: https://sourcery.ai/webhook
+- **Events**: push, pull_request
+- **Status**: Active
+
+**If you need to recreate it:**
 ```bash
-# Add Sourcery webhook to repository
-gh api repos/YOUR_USERNAME/REPO-Magic/hooks \
-  --method POST \
-  --field name="sourcery" \
-  --field config='{"url":"https://sourcery.ai/webhook","content_type":"json"}' \
-  --field events='["push","pull_request"]'
+# Create webhook configuration file
+cat > webhook_config.json << 'EOF'
+{
+  "name": "web",
+  "config": {
+    "url": "https://sourcery.ai/webhook",
+    "content_type": "json"
+  },
+  "events": ["push", "pull_request"],
+  "active": true
+}
+EOF
+
+# Create the webhook
+gh api repos/grimm00/REPO-Magic/hooks --method POST --input webhook_config.json
+
+# Clean up
+rm webhook_config.json
 ```
 
 ## Step 5: Create GitHub Workflows
@@ -193,9 +234,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   test:
@@ -304,15 +345,35 @@ gh api repos/YOUR_USERNAME/REPO-Magic --method PATCH --field has_wiki=true
 ```
 
 ### Set Up Branch Protection
+
+**Main Branch Protection:**
 ```bash
-# Create branch protection rule
-gh api repos/YOUR_USERNAME/REPO-Magic/branches/main/protection \
+# Create branch protection rule for main
+gh api repos/grimm00/REPO-Magic/branches/main/protection \
   --method PUT \
   --field required_status_checks='{"strict":true,"contexts":["test"]}' \
   --field enforce_admins=true \
   --field required_pull_request_reviews='{"required_approving_review_count":1}' \
   --field restrictions=null
 ```
+
+**Develop Branch Protection:**
+```bash
+# Create branch protection rule for develop
+gh api repos/grimm00/REPO-Magic/branches/develop/protection \
+  --method PUT \
+  --field required_status_checks='{"strict":true,"contexts":["test"]}' \
+  --field enforce_admins=false \
+  --field required_pull_request_reviews='{"required_approving_review_count":1}' \
+  --field restrictions=null
+```
+
+**Branch Protection Features:**
+- ✅ Require pull request reviews before merging
+- ✅ Require status checks to pass (CI/CD)
+- ✅ Require branches to be up to date before merging
+- ✅ Restrict pushes to protected branches
+- ✅ Allow maintainers to bypass restrictions (develop only)
 
 ## Step 7: Create Project Documentation
 
