@@ -71,7 +71,7 @@ jobs:
           pacman -Sy --noconfirm
           
           # Install dependencies (Arch package names)
-          pacman -S --noconfirm jq curl openssl git python
+          pacman -S --noconfirm jq curl openssl git python zip
           
           # Test shell script syntax
           echo 'Testing shell script syntax...'
