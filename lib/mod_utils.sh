@@ -58,7 +58,6 @@ search_mods() {
         return 1
     fi
     
-    echo "Searching for mods matching: '$search_term'"
     log_message "INFO" "Searching for mods matching: '$search_term'"
     
     # Find all mod directories and filter by search term
@@ -103,19 +102,25 @@ get_mod_selection() {
     
     # Search for mods
     if [ -n "$search_term" ]; then
-        if ! search_mods "$search_term" > "$temp_file"; then
+        local search_result=$(search_mods "$search_term")
+        if [ $? -ne 0 ] || [ ! -f "$search_result" ]; then
             echo -e "${RED}No mods found matching '$search_term'${NC}"
             log_message "ERROR" "No mods found matching '$search_term'"
-            rm "$temp_file"
+            rm -f "$temp_file" "$search_result"
             exit 1
         fi
+        cp "$search_result" "$temp_file"
+        rm -f "$search_result"
     else
-        if ! list_installed_mods > "$temp_file"; then
+        local list_result=$(list_installed_mods)
+        if [ $? -ne 0 ] || [ ! -f "$list_result" ]; then
             echo -e "${RED}No mods found${NC}"
             log_message "ERROR" "No mods found"
-            rm "$temp_file"
+            rm -f "$temp_file" "$list_result"
             exit 1
         fi
+        cp "$list_result" "$temp_file"
+        rm -f "$list_result"
     fi
     
     # Count mods
@@ -272,14 +277,25 @@ download_and_install_mod() {
         fi
     else
         echo "Download is not a zip file, treating as extracted content..."
-        # Move the downloaded file to the temp directory
-        mv "$download_file" "$temp_dir/"
+        # Create a subdirectory and move the downloaded file there
+        local extracted_dir="$temp_dir/extracted"
+        mkdir -p "$extracted_dir"
+        mv "$download_file" "$extracted_dir/"
     fi
     
     # Remove existing mod files
     echo "Removing existing mod files..."
     if [ -d "${MOD_PLUGIN_PATH}/${mod_name}" ]; then
         rm -rf "${MOD_PLUGIN_PATH}/${mod_name}"
+    fi
+    
+    # Create mod directory
+    echo "Creating mod directory..."
+    if ! mkdir -p "${MOD_PLUGIN_PATH}/${mod_name}"; then
+        echo -e "${RED}Failed to create mod directory${NC}"
+        log_message "ERROR" "Failed to create mod directory: ${MOD_PLUGIN_PATH}/${mod_name}"
+        rm -rf "$temp_dir"
+        exit 1
     fi
     
     # Install new mod files

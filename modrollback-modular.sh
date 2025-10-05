@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Mod Installer for SteamOS (Modular Version)
-# Installs the MoreUpgrades mod for Risk of Rain 2
+# Mod Rollback Tool for r2modmanPlus (Modular Version)
+# This script helps you rollback any installed mod to a previous version
 # Uses modular libraries for better maintainability
 
 # Get script directory
@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/lib/logging_utils.sh"
 source "$SCRIPT_DIR/lib/steamos_utils.sh"
 source "$SCRIPT_DIR/lib/yaml_utils.sh"
 source "$SCRIPT_DIR/lib/registry_utils.sh"
+source "$SCRIPT_DIR/lib/mod_utils.sh"
 
 # Define colors for output
 BLUE='\033[0;34m'
@@ -21,27 +22,36 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-MOD_NAME="BULLETBOT-MoreUpgrades"
-MOD_VERSION="1.4.8"
-MOD_AUTHOR="BULLETBOT"
-MOD_DESCRIPTION="Adds more upgrade items to the game, has an library and is highly configurable."
-MOD_URL="https://thunderstore.io/package/download/BULLETBOT/MoreUpgrades/1.4.8/"
-MOD_INSTALL_PATH_REPO="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins/BULLETBOT-MoreUpgrades"
+MOD_PLUGIN_PATH="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins"
 MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+
+# Global variables
+mod_info=""
+rollback_version=""
+selected_mod=""
+selected_author=""
+current_version=""
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [MOD_NAME]"
     echo ""
     echo "Options:"
     echo "  -v, --verbose    Enable verbose logging"
     echo "  -h, --help       Show this help message"
     echo ""
-    echo "This script installs the MoreUpgrades mod for Risk of Rain 2 on SteamOS."
+    echo "Arguments:"
+    echo "  MOD_NAME         Name of the mod to rollback (optional)"
+    echo ""
+    echo "Examples:"
+    echo "  $0                    # Interactive mode"
+    echo "  $0 moreupgrades       # Rollback MoreUpgrades mod"
+    echo "  $0 -v moreupgrades    # Verbose mode with specific mod"
 }
 
 # Function to parse command line arguments
 parse_arguments() {
+    SEARCH_TERM=""
     VERBOSE=false
     
     while [[ $# -gt 0 ]]; do
@@ -60,9 +70,13 @@ parse_arguments() {
                 exit 1
                 ;;
             *)
-                echo -e "${RED}Unexpected argument: $1${NC}"
-                show_usage
-                exit 1
+                if [ -z "$SEARCH_TERM" ]; then
+                    SEARCH_TERM=$(validate_input "$1" "search_term")
+                else
+                    echo -e "${RED}Multiple mod names provided. Please specify only one.${NC}"
+                    exit 1
+                fi
+                shift
                 ;;
         esac
     done
@@ -71,16 +85,16 @@ parse_arguments() {
 # Function to initialize the script
 init_script() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  MoreUpgrades Mod Installer for SteamOS${NC}"
+    echo -e "${BLUE}  Mod Rollback Tool for r2modmanPlus${NC}"
     echo -e "${BLUE}  (Modular Version)${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo ""
-    echo "This script will install the MoreUpgrades mod for Risk of Rain 2."
+    echo "This script will help you rollback any installed mod to a previous version."
     echo ""
     
     # Initialize logging
-    init_logging "modinstaller-modular" "$VERBOSE"
-    log_message "INFO" "Mod Installer (Modular) started"
+    init_logging "modrollback-modular" "$VERBOSE"
+    log_message "INFO" "Mod Rollback Tool (Modular) started"
     
     # Check if we should skip dependency checks
     if [ "$SKIP_DEPENDENCY_CHECK" = "true" ]; then
@@ -134,6 +148,19 @@ init_script() {
     
     # Set up cleanup trap
     trap 'cleanup_on_exit' EXIT
+    
+    # Clean and validate mods.yml file before proceeding
+    if [ -f "$MODS_YML" ]; then
+        clean_mods_yml "$MODS_YML"
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Failed to clean mods.yml file. Please check the file manually.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${YELLOW}Warning: mods.yml not found at $MODS_YML${NC}"
+        echo "Registry updates will be skipped."
+        log_message "WARN" "mods.yml not found at $MODS_YML"
+    fi
 }
 
 # Function to cleanup on exit
@@ -143,77 +170,19 @@ cleanup_on_exit() {
         enable_steamos_readonly
     fi
     
-    log_message "INFO" "Mod Installer (Modular) finished"
+    log_message "INFO" "Mod Rollback Tool (Modular) finished"
 }
 
-# Function to download and install mod
-download_and_install_mod() {
-    echo -e "${BLUE}Downloading and installing mod...${NC}"
-    log_message "INFO" "Downloading MoreUpgrades mod from $MOD_URL"
+# Function to get download URL for mod version
+get_download_url() {
+    local mod_name="$1"
+    local version="$2"
+    local author="$3"
     
-    # Create temporary directory
-    local temp_dir=$(mktemp -d)
-    local download_file="$temp_dir/MoreUpgrades.zip"
+    # Construct download URL
+    local download_url="https://thunderstore.io/package/download/$author/$mod_name/$version/"
     
-    # Download mod
-    echo "Downloading mod..."
-    if ! curl -L -o "$download_file" "$MOD_URL"; then
-        echo -e "${RED}Failed to download mod${NC}"
-        log_message "ERROR" "Failed to download mod from $MOD_URL"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Extract mod files
-    echo "Extracting mod files..."
-    if ! unzip -q "$download_file" -d "$temp_dir"; then
-        echo -e "${RED}Failed to extract mod files${NC}"
-        log_message "ERROR" "Failed to extract mod files"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Create mod directory
-    echo "Creating mod directory..."
-    if ! mkdir -p "$MOD_INSTALL_PATH_REPO"; then
-        echo -e "${RED}Failed to create mod directory${NC}"
-        log_message "ERROR" "Failed to create mod directory: $MOD_INSTALL_PATH_REPO"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Copy mod files
-    echo "Installing mod files..."
-    if ! cp -r "$temp_dir"/* "$MOD_INSTALL_PATH_REPO/"; then
-        echo -e "${RED}Failed to install mod files${NC}"
-        log_message "ERROR" "Failed to install mod files"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Clean up
-    rm -rf "$temp_dir"
-    
-    echo -e "${GREEN}Mod installed successfully!${NC}"
-    log_message "INFO" "MoreUpgrades mod installed successfully"
-}
-
-# Function to register mod with r2modmanPlus
-register_mod() {
-    if [ -f "$MODS_YML" ]; then
-        add_mod_to_registry \
-            "$MOD_NAME" \
-            "$MOD_INSTALL_PATH_REPO" \
-            "$MOD_VERSION" \
-            "$MOD_AUTHOR" \
-            "$MOD_DESCRIPTION" \
-            "$MOD_URL" \
-            "$MODS_YML"
-    else
-        echo -e "${YELLOW}Warning: r2modmanPlus mods.yml not found at $MODS_YML${NC}"
-        echo "Mod installed but not registered with r2modmanPlus"
-        log_message "WARN" "r2modmanPlus mods.yml not found at $MODS_YML"
-    fi
+    echo "$download_url"
 }
 
 # Main execution
@@ -224,37 +193,59 @@ main() {
     # Initialize script
     init_script
     
-    # Confirm installation
-    echo -e "${BLUE}Installation Summary:${NC}"
-    echo -e "  Mod: $MOD_NAME"
-    echo -e "  Version: $MOD_VERSION"
-    echo -e "  Author: $MOD_AUTHOR"
-    echo -e "  Install Path: $MOD_INSTALL_PATH_REPO"
+    # Show search term if provided
+    if [ -n "$SEARCH_TERM" ]; then
+        echo -e "${BLUE}Search term provided: '$SEARCH_TERM'${NC}"
+        log_message "INFO" "Search term provided: '$SEARCH_TERM'"
+    fi
+    
+    echo "Checking installed mods..."
+    
+    # Get mod selection from user (this will show filtered results)
+    get_mod_selection "$SEARCH_TERM"
+    
+    # Parse mod info
+    IFS='|' read -r selected_mod selected_author current_version <<< "$mod_info"
+    
+    # Get rollback version
+    get_rollback_version "$current_version" "$selected_mod"
+    
+    # Get download URL
+    local download_url=$(get_download_url "$selected_mod" "$rollback_version" "$selected_author")
+    
+    echo ""
+    echo -e "${BLUE}Rollback Summary:${NC}"
+    echo -e "  Mod: $selected_mod"
+    echo -e "  Author: $selected_author"
+    echo -e "  Current version: $current_version"
+    echo -e "  Rollback version: $rollback_version"
+    echo -e "  Download URL: $download_url"
     echo ""
     
-    if ! confirm_action "Proceed with installation?"; then
-        echo "Installation cancelled."
-        log_message "INFO" "Installation cancelled by user"
+    # Confirm rollback
+    if ! confirm_action "Proceed with rollback?"; then
+        echo "Rollback cancelled."
+        log_message "INFO" "Rollback cancelled by user"
         exit 0
     fi
     
     # Download and install mod
-    download_and_install_mod
+    download_and_install_mod "$selected_mod" "$download_url" "$rollback_version"
     
-    # Register the mod with r2modmanPlus
-    register_mod
+    # Update registry
+    update_mod_registry "$selected_mod" "$selected_author" "$current_version" "$rollback_version" "$MODS_YML"
     
     echo ""
     echo -e "${GREEN}==========================================${NC}"
-    echo -e "${GREEN}  Installation Complete!${NC}"
+    echo -e "${GREEN}  Rollback Complete!${NC}"
     echo -e "${GREEN}==========================================${NC}"
     echo ""
-    echo -e "${GREEN}The MoreUpgrades mod has been successfully installed!${NC}"
+    echo -e "${GREEN}Mod '$selected_mod' has been successfully rolled back from version $current_version to $rollback_version.${NC}"
     echo ""
-    echo "You can now start r2modmanPlus to see the mod in your profile."
+    echo "You can now start r2modmanPlus to see the changes."
     echo ""
     
-    log_message "INFO" "MoreUpgrades mod installation completed successfully"
+    log_message "INFO" "Rollback completed successfully: $selected_mod from $current_version to $rollback_version"
 }
 
 # Run main function
