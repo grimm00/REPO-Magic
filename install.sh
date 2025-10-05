@@ -25,6 +25,17 @@ fi
 # Check and install dependencies
 echo -e "${BLUE}Step 1: Checking and installing dependencies...${NC}"
 
+# Function to re-enable SteamOS read-only mode
+reenable_readonly() {
+    if [ -f "/etc/steamos-release" ] || [ -d "/etc/steamos" ]; then
+        if command -v steamos-readonly >/dev/null 2>&1; then
+            echo -e "${BLUE}Re-enabling SteamOS read-only mode...${NC}"
+            sudo steamos-readonly enable
+            echo "✅ Read-only mode re-enabled"
+        fi
+    fi
+}
+
 # Function to detect package manager and install dependencies
 install_dependencies() {
     local missing_deps=()
@@ -47,6 +58,34 @@ install_dependencies() {
     # Detect package manager and install
     if command -v pacman >/dev/null 2>&1; then
         echo -e "${BLUE}Detected Arch Linux/SteamOS (pacman)${NC}"
+        
+        # Check for SteamOS and handle keyring issues
+        if [ -f "/etc/steamos-release" ] || [ -d "/etc/steamos" ]; then
+            echo -e "${YELLOW}SteamOS detected - checking system status...${NC}"
+            
+            # Check if system is in read-only mode
+            if command -v steamos-readonly >/dev/null 2>&1; then
+                if steamos-readonly status 2>/dev/null | grep -q "enabled"; then
+                    echo -e "${YELLOW}⚠️  SteamOS is in read-only mode. Temporarily disabling...${NC}"
+                    sudo steamos-readonly disable
+                    echo "✅ Read-only mode disabled"
+                fi
+            fi
+            
+            # Initialize keyring if needed
+            if ! sudo pacman-key --list-sigs >/dev/null 2>&1; then
+                echo "Initializing pacman keyring..."
+                sudo pacman-key --init
+                sudo pacman-key --populate archlinux
+                sudo pacman-key --populate steamos
+                
+                # Trust SteamOS package builder key
+                echo "Adding SteamOS package builder key..."
+                sudo pacman-key --recv-keys AF1D2199EF0A3CCF 2>/dev/null || true
+                sudo pacman-key --lsign-key AF1D2199EF0A3CCF 2>/dev/null || true
+            fi
+        fi
+        
         echo "Installing missing dependencies..."
         
         # Map package names for Arch
@@ -58,12 +97,30 @@ install_dependencies() {
             esac
         done
         
+        # Try installation with keyring handling
         if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
             echo "✅ Dependencies installed successfully"
+            reenable_readonly
             return 0
         else
-            echo -e "${RED}❌ Failed to install dependencies with pacman${NC}"
-            return 1
+            echo -e "${YELLOW}⚠️  First attempt failed, trying with keyring refresh...${NC}"
+            
+            # Refresh keyring and try again
+            sudo pacman-key --refresh-keys 2>/dev/null || true
+            sudo pacman -Sy 2>/dev/null || true
+            
+            if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
+                echo "✅ Dependencies installed successfully (after keyring refresh)"
+                reenable_readonly
+                return 0
+            else
+                echo -e "${RED}❌ Failed to install dependencies with pacman${NC}"
+                echo -e "${YELLOW}This might be a keyring issue. Try running:${NC}"
+                echo "  sudo pacman-key --init"
+                echo "  sudo pacman-key --populate archlinux"
+                echo "  sudo pacman-key --populate steamos"
+                return 1
+            fi
         fi
         
     elif command -v apt >/dev/null 2>&1; then
