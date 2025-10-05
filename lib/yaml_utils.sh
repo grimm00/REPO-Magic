@@ -282,3 +282,82 @@ except Exception as e:
     sys.exit(1)
 "
 }
+
+# Function to list all mods from mods.yml file
+list_mods_from_yml() {
+    local mods_yml="$1"
+    local temp_file=$(mktemp)
+    
+    if [ ! -f "$mods_yml" ]; then
+        echo -e "${RED}Error: mods.yml file not found: $mods_yml${NC}"
+        log_message "ERROR" "mods.yml file not found: $mods_yml"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    if command -v log_message >/dev/null 2>&1; then
+        log_message "INFO" "Scanning installed mods from $mods_yml"
+    fi
+    
+    # Convert YAML to JSON and extract mod information
+    yaml_to_json "$mods_yml" 2>/dev/null | jq -r '.[] | select(.name != null) | "\(.name)|\(.authorName // "Unknown")|\(.versionNumber.major // 0).\(.versionNumber.minor // 0).\(.versionNumber.patch // 0)"' > "$temp_file" 2>/dev/null
+    if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
+        echo "$temp_file"
+        return 0
+    else
+        echo -e "${RED}Error: Failed to parse mods.yml file${NC}"
+        if command -v log_message >/dev/null 2>&1; then
+            log_message "ERROR" "Failed to parse mods.yml file"
+        fi
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+# Function to search for mods in mods.yml by name
+search_mods_from_yml() {
+    local mods_yml="$1"
+    local search_term="$2"
+    local temp_file=$(mktemp)
+    
+    if [ ! -f "$mods_yml" ]; then
+        echo -e "${RED}Error: mods.yml file not found: $mods_yml${NC}"
+        if command -v log_message >/dev/null 2>&1; then
+            log_message "ERROR" "mods.yml file not found: $mods_yml"
+        fi
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    if command -v log_message >/dev/null 2>&1; then
+        log_message "INFO" "Searching for mods matching '$search_term' in $mods_yml"
+    fi
+    
+    # Convert YAML to JSON and search for mods
+    yaml_to_json "$mods_yml" 2>/dev/null | jq -r --arg search "$search_term" '.[] | select(.name != null and (.name | ascii_downcase | contains($search | ascii_downcase))) | "\(.name)|\(.authorName // "Unknown")|\(.versionNumber.major // 0).\(.versionNumber.minor // 0).\(.versionNumber.patch // 0)"' > "$temp_file" 2>/dev/null
+    if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
+        echo "$temp_file"
+        return 0
+    else
+        echo -e "${RED}Error: Failed to search mods.yml file${NC}"
+        if command -v log_message >/dev/null 2>&1; then
+            log_message "ERROR" "Failed to search mods.yml file"
+        fi
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+# Function to get mod information from mods.yml by exact name
+get_mod_info_from_yml() {
+    local mods_yml="$1"
+    local mod_name="$2"
+    
+    if [ ! -f "$mods_yml" ]; then
+        echo -e "${RED}Error: mods.yml file not found: $mods_yml${NC}"
+        return 1
+    fi
+    
+    # Convert YAML to JSON and extract specific mod info
+    yaml_to_json "$mods_yml" 2>/dev/null | jq -r --arg name "$mod_name" '.[] | select(.name == $name) | "\(.name)|\(.authorName // "Unknown")|\(.versionNumber.major // 0).\(.versionNumber.minor // 0).\(.versionNumber.patch // 0)"' 2>/dev/null
+}

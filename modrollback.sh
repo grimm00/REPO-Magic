@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/lib/logging_utils.sh"
 source "$SCRIPT_DIR/lib/steamos_utils.sh"
 source "$SCRIPT_DIR/lib/yaml_utils.sh"
 source "$SCRIPT_DIR/lib/registry_utils.sh"
+source "$SCRIPT_DIR/lib/profile_utils.sh"
 source "$SCRIPT_DIR/lib/mod_utils.sh"
 
 # Define colors for output
@@ -22,8 +23,9 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-MOD_PLUGIN_PATH="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/BepInEx/plugins"
-MODS_YML="/home/deck/.config/r2modmanPlus-local/REPO/profiles/Friends/mods.yml"
+PROFILE_NAME=""
+PROFILE_PATH=""
+# MOD_PLUGIN_PATH and MODS_YML are set by resolve_profile() in profile_utils.sh
 
 # Global variables
 mod_info=""
@@ -38,6 +40,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -v, --verbose    Enable verbose logging"
+    echo "  -p, --profile    r2modman profile name (default: Default)"
     echo "  -h, --help       Show this help message"
     echo ""
     echo "Arguments:"
@@ -53,12 +56,17 @@ show_usage() {
 parse_arguments() {
     SEARCH_TERM=""
     VERBOSE=false
+    PROFILE_NAME=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
             -v|--verbose)
                 VERBOSE=true
                 shift
+                ;;
+            -p|--profile)
+                PROFILE_NAME="$2"
+                shift 2
                 ;;
             -h|--help)
                 show_usage
@@ -82,6 +90,8 @@ parse_arguments() {
     done
 }
 
+# Note: resolve_profile() function is now provided by lib/profile_utils.sh
+
 # Function to initialize the script
 init_script() {
     echo -e "${BLUE}==========================================${NC}"
@@ -92,6 +102,9 @@ init_script() {
     echo "This script will help you rollback any installed mod to a previous version."
     echo ""
     
+    # Resolve profile paths
+    resolve_profile "$PROFILE_NAME"
+
     # Initialize logging
     init_logging "modrollback-modular" "$VERBOSE"
     log_message "INFO" "Mod Rollback Tool (Modular) started"

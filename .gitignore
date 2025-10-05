@@ -39,3 +39,8 @@ config.local
 # Temporary directories
 tmp/
 temp/
+# Ignore parser outputs
+*.md
+!README.md
+!docs/**
+!**/README.md
