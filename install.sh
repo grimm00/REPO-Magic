@@ -22,11 +22,100 @@ if [ ! -f "modrollback.sh" ] || [ ! -f "modinstaller.sh" ]; then
     exit 1
 fi
 
-# Check dependencies
-echo -e "${BLUE}Step 1: Checking dependencies...${NC}"
-if ! ./check_dependencies.sh; then
+# Check and install dependencies
+echo -e "${BLUE}Step 1: Checking and installing dependencies...${NC}"
+
+# Function to detect package manager and install dependencies
+install_dependencies() {
+    local missing_deps=()
+    
+    # Check which dependencies are missing
+    for dep in "jq" "curl" "openssl" "git" "python3"; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    
+    if [ ${#missing_deps[@]} -eq 0 ]; then
+        echo "✅ All required dependencies are already installed"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}Missing dependencies: ${missing_deps[*]}${NC}"
     echo ""
-    echo -e "${RED}❌ Please install the missing dependencies and run this script again.${NC}"
+    
+    # Detect package manager and install
+    if command -v pacman >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Arch Linux/SteamOS (pacman)${NC}"
+        echo "Installing missing dependencies..."
+        
+        # Map package names for Arch
+        local arch_packages=()
+        for dep in "${missing_deps[@]}"; do
+            case "$dep" in
+                "python3") arch_packages+=("python") ;;
+                *) arch_packages+=("$dep") ;;
+            esac
+        done
+        
+        if sudo pacman -S --noconfirm "${arch_packages[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to install dependencies with pacman${NC}"
+            return 1
+        fi
+        
+    elif command -v apt >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Ubuntu/Debian (apt)${NC}"
+        echo "Installing missing dependencies..."
+        
+        if sudo apt update && sudo apt install -y "${missing_deps[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to install dependencies with apt${NC}"
+            return 1
+        fi
+        
+    elif command -v dnf >/dev/null 2>&1; then
+        echo -e "${BLUE}Detected Fedora/RHEL (dnf)${NC}"
+        echo "Installing missing dependencies..."
+        
+        if sudo dnf install -y "${missing_deps[@]}"; then
+            echo "✅ Dependencies installed successfully"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to install dependencies with dnf${NC}"
+            return 1
+        fi
+        
+    else
+        echo -e "${RED}❌ Unsupported package manager${NC}"
+        echo "Please install the missing dependencies manually:"
+        for dep in "${missing_deps[@]}"; do
+            echo "  • $dep"
+        done
+        return 1
+    fi
+}
+
+# Try to install dependencies automatically
+if ! install_dependencies; then
+    echo ""
+    echo -e "${YELLOW}Automatic installation failed. Running dependency check...${NC}"
+    if ! ./check_dependencies.sh; then
+        echo ""
+        echo -e "${RED}❌ Please install the missing dependencies manually and run this script again.${NC}"
+        exit 1
+    fi
+fi
+
+# Final dependency verification
+echo ""
+echo -e "${BLUE}Verifying all dependencies are installed...${NC}"
+if ! ./check_dependencies.sh; then
+    echo -e "${RED}❌ Some dependencies are still missing after installation attempt${NC}"
     exit 1
 fi
 
