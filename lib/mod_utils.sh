@@ -228,12 +228,12 @@ download_and_install_mod() {
             rm -rf "$temp_dir"
             exit 1
         fi
+        # Remove the zip file after extraction
+        rm "$download_file"
     else
         echo "Download is not a zip file, treating as extracted content..."
-        # Create a subdirectory and move the downloaded file there
-        local extracted_dir="$temp_dir/extracted"
-        mkdir -p "$extracted_dir"
-        mv "$download_file" "$extracted_dir/"
+        # Move the downloaded file to the temp directory root
+        mv "$download_file" "$temp_dir/"
     fi
     
     # Remove existing mod files
@@ -253,7 +253,27 @@ download_and_install_mod() {
     
     # Install new mod files
     echo "Installing new mod files..."
-    if ! cp -r "$temp_dir"/* "${MOD_PLUGIN_PATH}/${mod_name}/"; then
+    
+    # Find the actual mod content (handle nested directories)
+    local mod_content=""
+    if [ -d "$temp_dir" ] && [ "$(ls -A "$temp_dir" 2>/dev/null)" ]; then
+        # Check if there's a single subdirectory (common with Thunderstore downloads)
+        local subdirs=($(find "$temp_dir" -maxdepth 1 -type d ! -path "$temp_dir"))
+        if [ ${#subdirs[@]} -eq 1 ]; then
+            mod_content="${subdirs[0]}"
+            echo "Found mod content in subdirectory: $(basename "$mod_content")"
+        else
+            mod_content="$temp_dir"
+        fi
+    else
+        echo -e "${RED}No mod content found in temp directory${NC}"
+        log_message "ERROR" "No mod content found in temp directory"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    # Copy the mod files
+    if ! cp -r "$mod_content"/* "${MOD_PLUGIN_PATH}/${mod_name}/"; then
         echo -e "${RED}Failed to install mod files${NC}"
         log_message "ERROR" "Failed to install mod files"
         rm -rf "$temp_dir"
