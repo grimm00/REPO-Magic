@@ -192,8 +192,12 @@ get_download_url() {
     local version="$2"
     local author="$3"
     
+    # Remove author prefix from mod name if present
+    # Example: "BULLETBOT-MoreUpgrades" -> "MoreUpgrades"
+    local clean_mod_name=$(echo "$mod_name" | sed "s/^${author}-//")
+    
     # Construct download URL
-    local download_url="https://thunderstore.io/package/download/$author/$mod_name/$version/"
+    local download_url="https://thunderstore.io/package/download/$author/$clean_mod_name/$version/"
     
     echo "$download_url"
 }

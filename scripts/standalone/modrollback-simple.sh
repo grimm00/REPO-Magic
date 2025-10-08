@@ -561,9 +561,10 @@ generate_download_url() {
     
     # Convert mod name to package name format
     # Example: "BULLETBOT-MoreUpgrades" -> "BULLETBOT/MoreUpgrades"
-    local package_name=$(echo "$mod_name" | sed 's/-/\//')
+    # Remove the author prefix and convert to proper format
+    local package_name=$(echo "$mod_name" | sed "s/^${author}-//" | sed 's/-/\//')
     
-    echo "${THUNDERSTORE_BASE_URL}/${package_name}/${version}/"
+    echo "${THUNDERSTORE_BASE_URL}/${author}/${package_name}/${version}/"
 }
 
 # Function to download and install mod
