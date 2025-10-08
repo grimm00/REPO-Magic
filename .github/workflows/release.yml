@@ -13,9 +13,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Create release
-      env:
-        GH_TOKEN: ${{ github.token }}
+    - name: Create release packages
       run: |
         echo "Creating release for tag: $GITHUB_REF"
         
@@ -23,7 +21,23 @@ jobs:
         VERSION=${GITHUB_REF#refs/tags/}
         echo "Version: $VERSION"
         
-        # Create release notes
+        # Set version for package creation
+        export VERSION=${VERSION#v}  # Remove 'v' prefix (v1.1 -> 1.1)
+        
+        # Create both packages
+        ./create_package.sh
+        ./create_user_package.sh
+        
+        echo "Packages created successfully"
+        
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        # Create release notes (updated content)
         cat > release_notes.md << EOL
         # Release $VERSION
         
@@ -43,7 +57,9 @@ jobs:
         gh release create "$VERSION" \
           --title "Release $VERSION" \
           --notes-file release_notes.md \
-          --latest
+          --latest \
+          /tmp/REPO-Magic-v${VERSION#v}.zip \
+          /tmp/REPO-Magic-User-v${VERSION#v}.zip
           
     - name: Update documentation
       run: |
