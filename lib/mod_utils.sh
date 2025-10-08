@@ -272,6 +272,26 @@ download_and_install_mod() {
         exit 1
     fi
     
+    # Check for additional zip files that need extraction (common with Thunderstore)
+    echo "Checking for additional zip files to extract..."
+    local zip_files=($(find "$mod_content" -name "*.zip" -type f))
+    if [ ${#zip_files[@]} -gt 0 ]; then
+        echo "Found ${#zip_files[@]} additional zip file(s), extracting..."
+        for zip_file in "${zip_files[@]}"; do
+            echo "Extracting: $(basename "$zip_file")"
+            if file "$zip_file" | grep -q "Zip archive"; then
+                if unzip -q "$zip_file" -d "$(dirname "$zip_file")"; then
+                    echo "Successfully extracted: $(basename "$zip_file")"
+                    rm "$zip_file"  # Remove the zip file after extraction
+                else
+                    echo -e "${YELLOW}Warning: Failed to extract $(basename "$zip_file")${NC}"
+                fi
+            else
+                echo -e "${YELLOW}Warning: $(basename "$zip_file") is not a valid zip file${NC}"
+            fi
+        done
+    fi
+    
     # Copy the mod files
     if ! cp -r "$mod_content"/* "${MOD_PLUGIN_PATH}/${mod_name}/"; then
         echo -e "${RED}Failed to install mod files${NC}"
